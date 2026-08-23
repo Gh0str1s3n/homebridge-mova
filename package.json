@@ -1,0 +1,30 @@
+{
+  "name": "homebridge-mova",
+  "version": "0.1.0",
+  "description": "Homebridge plugin for MOVA robot vacuum cleaners",
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22.0.0",
+    "homebridge": ">=2.0.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "mova",
+    "vacuum",
+    "robot"
+  ],
+  "author": "Martin Raab",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "homebridge": "^2.4.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "axios": "^1.19.0"
+  }
+}

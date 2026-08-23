@@ -1,0 +1,32 @@
+# Installierte Pakete
+node_modules/
+
+# Erzeugte TypeScript-Ausgabe
+dist/
+
+# Test- und Abdeckungsdaten
+coverage/
+
+# Protokolle
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Lokale Zugangsdaten und Umgebungsdateien
+.env
+.env.*
+!.env.example
+config.json
+.homebridge/
+
+# Erzeugte npm-Pakete
+*.tgz
+
+# macOS
+.DS_Store
+
+# Editoren
+.vscode/
+.idea/
+*.swp

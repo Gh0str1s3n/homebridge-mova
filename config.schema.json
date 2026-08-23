@@ -1,0 +1,38 @@
+{
+  "pluginAlias": "MovaVacuum",
+  "pluginType": "accessory",
+  "singular": true,
+  "headerDisplay": "MOVA E40 Ultra mit Homebridge und Apple Home verbinden.",
+  "footerDisplay": "Die Zugangsdaten werden ausschließlich für die Anmeldung an der MOVA-Cloud verwendet. Gib dein Passwort niemals in Protokollen oder Supportanfragen weiter.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Plugin-Name",
+        "type": "string",
+        "default": "MOVA",
+        "description": "Name der MOVA-Integration in Homebridge."
+      },
+      "username": {
+        "title": "MOVA-E-Mail-Adresse",
+        "type": "string",
+        "format": "email",
+        "placeholder": "name@beispiel.de",
+        "description": "E-Mail-Adresse, mit der du dich in der MOVAhome-App anmeldest."
+      },
+      "password": {
+        "title": "MOVA-Passwort",
+        "type": "string",
+        "description": "Passwort deines MOVAhome-Kontos.",
+        "x-schema-form": {
+          "type": "password"
+        }
+      }
+    },
+    "required": [
+      "name",
+      "username",
+      "password"
+    ]
+  }
+}
