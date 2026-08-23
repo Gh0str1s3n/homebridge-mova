@@ -7,6 +7,7 @@ import type {
 import type {
   MovaCloud,
   MovaDevice,
+  MovaRoom,
   MovaVacuumStatus,
 } from './mova-cloud.js';
 
@@ -271,7 +272,31 @@ export async function registerMovaMatterVacuum(
     `${PLUGIN_NAME}:${String(device.did)}`,
   );
 
+  let rooms: MovaRoom[] = [];
+
+  try {
+    rooms = await cloud.getRooms(device);
+    log.info(
+      `${rooms.length} MOVA-Räume für Apple Home geladen: ${
+        rooms.map(room => room.name).join(', ')
+      }.`,
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error
+      ? error.message
+      : String(error);
+
+    log.warn(
+      `MOVA-Räume konnten nicht geladen werden: ${message}`,
+    );
+  }
+
+  const roomById = new Map(
+    rooms.map(room => [room.id, room]),
+  );
+
   let selectedCleaningMode = 2;
+  let selectedRoomIds: number[] = [];
   let modeWriteProtectedUntil = 0;
   let statusUpdateRunning = false;
   let lastStatusSignature = '';
@@ -598,18 +623,60 @@ export async function registerMovaMatterVacuum(
         activeBatFaults: [],
         activeBatChargeFaults: [],
       },
+      ...(rooms.length > 0
+        ? {
+          serviceArea: {
+            supportedMaps: [
+              {
+                mapId: rooms[0]?.mapId ?? 1,
+                name: 'Zuhause',
+              },
+            ],
+            supportedAreas: rooms.map(room => ({
+              areaId: room.id,
+              mapId: room.mapId,
+              areaInfo: {
+                locationInfo: {
+                  locationName: room.name,
+                  floorNumber: null,
+                  areaType: null,
+                },
+                landmarkInfo: null,
+              },
+            })),
+            selectedAreas: [],
+            currentArea: null,
+            estimatedEndTime: null,
+          },
+        }
+        : {}),
     },
     handlers: {
       rvcRunMode: {
         changeToMode: async ({ newMode }) => {
           if (newMode === 1) {
+            const selectedRoomNames = selectedRoomIds
+              .map(roomId => roomById.get(roomId)?.name)
+              .filter((name): name is string => Boolean(name));
+            const commandDescription = selectedRoomNames.length > 0
+              ? `Raumreinigung starten: ${selectedRoomNames.join(', ')}`
+              : 'Reinigung starten';
+
             await execute(
-              'Reinigung starten',
+              commandDescription,
               async () => {
                 await configureCleaningMode(
                   selectedCleaningMode,
                 );
-                await cloud.startCleaning(device.did);
+
+                if (selectedRoomIds.length > 0) {
+                  await cloud.startRoomCleaning(
+                    device.did,
+                    selectedRoomIds,
+                  );
+                } else {
+                  await cloud.startCleaning(device.did);
+                }
               },
             );
             await updateMatterState(1, 1);
@@ -680,6 +747,51 @@ export async function registerMovaMatterVacuum(
           );
         },
       },
+      ...(rooms.length > 0
+        ? {
+          serviceArea: {
+            selectAreas: async ({ newAreas }) => {
+              const invalidRoomIds = newAreas.filter(
+                roomId => !roomById.has(roomId),
+              );
+
+              if (invalidRoomIds.length > 0) {
+                throw new matter.status.ConstraintError(
+                  `Unbekannte MOVA-Raum-ID: ${invalidRoomIds.join(', ')}`,
+                );
+              }
+
+              selectedRoomIds = [...new Set(newAreas)];
+
+              const selectedNames = selectedRoomIds
+                .map(roomId => roomById.get(roomId)?.name)
+                .filter((name): name is string => Boolean(name));
+
+              log.info(
+                selectedNames.length > 0
+                  ? `Raumauswahl übernommen: ${selectedNames.join(', ')}.`
+                  : 'Raumauswahl aufgehoben: vollständige Reinigung.',
+              );
+
+              setImmediate(() => {
+                void matter.updateAccessoryState(
+                  uuid,
+                  'serviceArea',
+                  { selectedAreas: [...selectedRoomIds] },
+                ).catch((error: unknown) => {
+                  const message = error instanceof Error
+                    ? error.message
+                    : String(error);
+
+                  log.warn(
+                    `Raumauswahl konnte nicht im Matter-Cache gespeichert werden: ${message}`,
+                  );
+                });
+              });
+            },
+          },
+        }
+        : {}),
     },
   };
 
