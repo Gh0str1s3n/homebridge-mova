@@ -24,7 +24,7 @@ are not currently supported.
 
 ## Requirements
 
-- Homebridge 2.0 or later with Matter enabled
+- Homebridge 2.0 or later with Matter support
 - Node.js 22 or later
 - A supported MOVA vacuum connected to a MOVAhome account
 - An active internet connection to the MOVA cloud
@@ -56,17 +56,25 @@ Equivalent configuration:
 }
 ```
 
-Run the plugin as a child bridge and enable Matter in its bridge settings.
-The recommended setup is **Matter externals-only mode** with HAP disabled:
-the vacuum requires its own Matter node, so this avoids publishing an additional
-empty bridge. Restart Homebridge after saving the configuration. Homebridge
-publishes the vacuum as an external Matter accessory and displays its Matter
-commissioning information in the log. Add the code labelled with the vacuum's
-name to Apple Home rather than a generic child-bridge code.
+Run the plugin as a child bridge. The recommended setup is **Matter
+externals-only mode** with HAP disabled. In the stored bridge configuration,
+`matter.enabled` is `false`, `matter.externalsOnly` is `true` and `hap.enabled`
+is `false`. The vacuum requires its own Matter node, so this avoids publishing
+an additional empty bridge and the associated Homebridge warning.
+
+Restart Homebridge after saving the configuration. Homebridge publishes the
+vacuum as a separate external Matter accessory. Open the plugin actions and
+select **External Accessories** to display the vacuum's Matter QR code. Add the
+code labelled with the vacuum's name to Apple Home rather than a generic
+child-bridge code.
+
+Homebridge may display **Matter not enabled** for the MOVA child bridge in this
+configuration. This is expected: the child bridge's own Matter node is disabled,
+while the external Matter vacuum remains active.
 
 ### Updating from 0.1.0
 
-Version 0.2.0 changes the Homebridge registration from an accessory plugin to a
+Version 1.0.0 changes the Homebridge registration from an accessory plugin to a
 platform plugin so Matter can run inside a child bridge. Remove the old
 `"accessory": "MovaVacuum"` configuration before installing the update, then
 create the MOVA configuration again through the Homebridge UI. Do not copy an
