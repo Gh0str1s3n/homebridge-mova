@@ -1,24 +1,44 @@
 {
   "name": "homebridge-mova",
+  "displayName": "Homebridge MOVA",
   "version": "0.1.0",
-  "description": "Homebridge plugin for MOVA robot vacuum cleaners",
+  "description": "Homebridge plugin for MOVA robot vacuum cleaners with native Matter support",
   "type": "module",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22.0.0",
     "homebridge": ">=2.0.0"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepack": "npm run build"
   },
   "keywords": [
     "homebridge-plugin",
+    "supports-matter",
     "mova",
     "vacuum",
-    "robot"
+    "robot",
+    "robot-vacuum",
+    "homekit",
+    "matter"
   ],
   "author": "Martin Raab",
   "license": "MIT",
+  "homepage": "https://github.com/Gh0str1s3n/homebridge-mova#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gh0str1s3n/homebridge-mova.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Gh0str1s3n/homebridge-mova/issues"
+  },
   "devDependencies": {
     "@types/node": "^26.2.0",
     "homebridge": "^2.4.0",
