@@ -1,9 +1,9 @@
 import type {
   API,
-  AccessoryConfig,
-  AccessoryPlugin,
+  DynamicPlatformPlugin,
   Logging,
-  Service,
+  PlatformAccessory,
+  PlatformConfig,
 } from 'homebridge';
 
 import type { MovaDevice } from './mova-cloud.js';
@@ -11,41 +11,36 @@ import { MovaCloud } from './mova-cloud.js';
 import { registerMovaMatterVacuum } from './mova-matter.js';
 
 const PLUGIN_NAME = 'homebridge-mova';
-const ACCESSORY_NAME = 'MovaVacuum';
+const PLATFORM_NAME = 'MovaVacuum';
 
-class MovaVacuumAccessory implements AccessoryPlugin {
-  private readonly informationService: Service;
+class MovaVacuumPlatform implements DynamicPlatformPlugin {
   private readonly cloudReady: Promise<void>;
   private cloud?: MovaCloud;
   private selectedDevice?: MovaDevice;
 
   constructor(
     private readonly log: Logging,
-    private readonly config: AccessoryConfig,
+    private readonly config: PlatformConfig,
     private readonly api: API,
   ) {
     this.log.info('MOVA-Plugin wird gestartet');
-
-    this.informationService =
-      new this.api.hap.Service.AccessoryInformation()
-        .setCharacteristic(
-          this.api.hap.Characteristic.Manufacturer,
-          'MOVA',
-        )
-        .setCharacteristic(
-          this.api.hap.Characteristic.Model,
-          'E40 Ultra',
-        )
-        .setCharacteristic(
-          this.api.hap.Characteristic.SerialNumber,
-          'MOVA-CLOUD',
-        );
-
     this.cloudReady = this.connectToCloud();
 
     this.api.on('didFinishLaunching', () => {
       void this.publishMatterVacuum();
     });
+  }
+
+  configureAccessory(accessory: PlatformAccessory): void {
+    this.log.debug(
+      `Veraltetes HAP-Zubehör wird entfernt: ${accessory.displayName}.`,
+    );
+
+    this.api.unregisterPlatformAccessories(
+      PLUGIN_NAME,
+      PLATFORM_NAME,
+      [accessory],
+    );
   }
 
   private async connectToCloud(): Promise<void> {
@@ -111,16 +106,6 @@ class MovaVacuumAccessory implements AccessoryPlugin {
         || e40Ultra.deviceInfo?.displayName?.trim()
         || 'MOVA E40 Ultra';
 
-      this.informationService
-        .setCharacteristic(
-          this.api.hap.Characteristic.Model,
-          'E40 Ultra',
-        )
-        .setCharacteristic(
-          this.api.hap.Characteristic.SerialNumber,
-          String(e40Ultra.did),
-        );
-
       this.log.info(
         `MOVA E40 Ultra ausgewählt: ${selectedName}.`,
       );
@@ -173,18 +158,12 @@ class MovaVacuumAccessory implements AccessoryPlugin {
       );
     }
   }
-
-  getServices(): Service[] {
-    return [
-      this.informationService,
-    ];
-  }
 }
 
 export default (api: API): void => {
-  api.registerAccessory(
+  api.registerPlatform(
     PLUGIN_NAME,
-    ACCESSORY_NAME,
-    MovaVacuumAccessory,
+    PLATFORM_NAME,
+    MovaVacuumPlatform,
   );
 };

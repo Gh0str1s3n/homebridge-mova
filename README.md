@@ -49,17 +49,29 @@ Equivalent configuration:
 
 ```json
 {
-  "accessory": "MovaVacuum",
+  "platform": "MovaVacuum",
   "name": "MOVA",
   "username": "your-mova-email@example.com",
   "password": "your-mova-password"
 }
 ```
 
-Restart Homebridge after saving the configuration. Homebridge publishes the
-vacuum as an external Matter accessory and displays its Matter commissioning
-information in the log. Add that accessory to Apple Home using the displayed
-QR code or manual pairing code.
+Run the plugin as a child bridge and enable Matter in its bridge settings.
+The recommended setup is **Matter externals-only mode** with HAP disabled:
+the vacuum requires its own Matter node, so this avoids publishing an additional
+empty bridge. Restart Homebridge after saving the configuration. Homebridge
+publishes the vacuum as an external Matter accessory and displays its Matter
+commissioning information in the log. Add the code labelled with the vacuum's
+name to Apple Home rather than a generic child-bridge code.
+
+### Updating from 0.1.0
+
+Version 0.2.0 changes the Homebridge registration from an accessory plugin to a
+platform plugin so Matter can run inside a child bridge. Remove the old
+`"accessory": "MovaVacuum"` configuration before installing the update, then
+create the MOVA configuration again through the Homebridge UI. Do not copy an
+old password from logs or support messages; enter the current password directly
+in the protected password field.
 
 Never include your MOVA password, Matter pairing code or complete Homebridge
 configuration in an issue or support request.

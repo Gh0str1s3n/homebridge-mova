@@ -12,7 +12,7 @@ import type {
 } from './mova-cloud.js';
 
 const PLUGIN_NAME = 'homebridge-mova';
-const MATTER_PLATFORM_NAME = 'MovaMatter';
+const MATTER_PLATFORM_NAME = 'MovaVacuum';
 const STATUS_UPDATE_INTERVAL_MS = 10_000;
 const MODE_WRITE_PROTECTION_MS = 15_000;
 const COMMAND_STATUS_DELAY_MS = 2_500;
