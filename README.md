@@ -1,5 +1,7 @@
 # Homebridge MOVA
 
+[![verified-by-homebridge](https://img.shields.io/badge/_-verified-blueviolet?color=%23491F59&style=flat&logoColor=%23FFFFFF&logo=homebridge)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
+
 Homebridge plugin for exposing a supported MOVA robot vacuum to Apple Home as
 a native Matter robotic vacuum cleaner.
 
