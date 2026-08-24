@@ -1,7 +1,7 @@
 {
   "name": "homebridge-mova",
   "displayName": "Homebridge MOVA",
-  "version": "1.1.0-alpha.0",
+  "version": "1.1.0-alpha.1",
   "description": "Homebridge plugin for MOVA robot vacuum cleaners with native Matter support",
   "type": "module",
   "main": "dist/index.js",
@@ -24,6 +24,7 @@
   },
   "keywords": [
     "homebridge-plugin",
+    "supports-hap",
     "supports-matter",
     "mova",
     "vacuum",

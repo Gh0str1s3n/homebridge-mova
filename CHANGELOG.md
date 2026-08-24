@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0-alpha.1 - 2026-08-24
+
+- Declare both HAP and Matter support so Homebridge enables HAP by default for
+  the preset switches while retaining the external Matter vacuum
+
 ## 1.1.0-alpha.0 - 2026-08-24
 
 - Add an experimental custom Homebridge configuration interface that loads
