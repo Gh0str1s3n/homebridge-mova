@@ -6,6 +6,15 @@ export interface MovaRoom {
   mapId: number;
   type: number | null;
   index: number | null;
+  cleaningSettings?: MovaRoomCleaningSettings;
+}
+
+export interface MovaRoomCleaningSettings {
+  suctionLevel: number;
+  waterVolume: number;
+  cleaningTimes: number;
+  order: number;
+  cleaningMode?: number;
 }
 
 const ROOM_TYPE_NAMES: Readonly<Record<number, string>> = {
@@ -34,7 +43,10 @@ interface SegmentInformation {
 
 interface ExpandedMapData {
   seg_inf?: Record<string, SegmentInformation>;
+  cleanset?: unknown;
 }
+
+type MovaCleanset = Readonly<Record<string, unknown>>;
 
 function decodeCustomRoomName(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0) {
@@ -68,6 +80,78 @@ function getRoomName(
   return index !== null && index > 0
     ? `${predefinedName} ${index + 1}`
     : predefinedName;
+}
+
+function decodeCleanset(value: unknown): MovaCleanset {
+  let decoded = value;
+
+  if (typeof decoded === 'string') {
+    try {
+      decoded = JSON.parse(decoded) as unknown;
+    } catch {
+      return {};
+    }
+  }
+
+  if (
+    !decoded
+    || typeof decoded !== 'object'
+    || Array.isArray(decoded)
+  ) {
+    return {};
+  }
+
+  return decoded as MovaCleanset;
+}
+
+function decodeRoomCleaningSettings(
+  value: unknown,
+): MovaRoomCleaningSettings | undefined {
+  if (!Array.isArray(value) || value.length < 4) {
+    return undefined;
+  }
+
+  const suctionLevel = value[0];
+  const encodedWaterVolume = value[1];
+  const cleaningTimes = value[2];
+  const order = value[3];
+  const cleaningMode = value.length > 4
+    ? value[4]
+    : undefined;
+
+  if (
+    typeof suctionLevel !== 'number'
+    || !Number.isInteger(suctionLevel)
+    || suctionLevel < 0
+    || typeof encodedWaterVolume !== 'number'
+    || !Number.isInteger(encodedWaterVolume)
+    || encodedWaterVolume < 1
+    || typeof cleaningTimes !== 'number'
+    || !Number.isInteger(cleaningTimes)
+    || cleaningTimes < 1
+    || typeof order !== 'number'
+    || !Number.isInteger(order)
+    || order < 0
+    || (
+      cleaningMode !== undefined
+      && (
+        typeof cleaningMode !== 'number'
+        || !Number.isInteger(cleaningMode)
+        || cleaningMode < 0
+        || cleaningMode > 3
+      )
+    )
+  ) {
+    return undefined;
+  }
+
+  return {
+    suctionLevel,
+    waterVolume: encodedWaterVolume - 1,
+    cleaningTimes,
+    order,
+    ...(cleaningMode === undefined ? {} : { cleaningMode }),
+  };
 }
 
 export function decodeMovaRooms(
@@ -123,6 +207,7 @@ export function decodeMovaRooms(
   }
 
   const roomIds = new Set<number>();
+  const cleanset = decodeCleanset(expandedData.cleanset);
 
   for (let offset = 27; offset < metadataOffset; offset += 1) {
     const roomId = map[offset] & 0x3f;
@@ -145,6 +230,9 @@ export function decodeMovaRooms(
         ? numericIndex
         : null;
       const customName = decodeCustomRoomName(segment?.name);
+      const cleaningSettings = decodeRoomCleaningSettings(
+        cleanset[String(roomId)],
+      );
 
       return {
         id: roomId,
@@ -157,6 +245,7 @@ export function decodeMovaRooms(
         mapId,
         type,
         index,
+        ...(cleaningSettings ? { cleaningSettings } : {}),
       };
     });
 }

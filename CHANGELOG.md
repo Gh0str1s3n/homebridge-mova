@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1-beta.0 - 2026-08-24
+
+- Preserve the individual MOVA cleaning mode, suction level, water volume and
+  repeat count for every room selected in Apple Home's Automatic mode
+- Wait for the vacuum to confirm customized cleaning before a room run starts
+- Prevent automatic room cleaning when the saved map lacks safe per-room mode
+  data
+- Add automated tests for MOVA map decoding and mixed room-cleaning plans
+
 ## 1.0.0 - 2026-08-23
 
 - First stable release
@@ -12,4 +21,3 @@
 - Single-room and multi-room selection from the saved MOVA map
 - Support for MOVA E40 Ultra models `mova.vacuum.r9504a` and
   `mova.vacuum.r5732a`
-

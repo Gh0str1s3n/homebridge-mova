@@ -10,6 +10,10 @@ import type {
   MovaRoom,
   MovaVacuumStatus,
 } from './mova-cloud.js';
+import {
+  createCustomizedRoomCleaningPlan,
+  type MovaRoomCleaningPlan,
+} from './mova-cleaning.js';
 
 const PLUGIN_NAME = 'homebridge-mova';
 const MATTER_PLATFORM_NAME = 'MovaVacuum';
@@ -322,24 +326,40 @@ export async function registerMovaMatterVacuum(
 
   const configureCleaningMode = async (
     mode: number,
+    confirmState = false,
   ): Promise<void> => {
     if (mode === 4) {
       await cloud.setCustomizedCleaning(
         device.did,
         true,
       );
+
+      if (confirmState) {
+        await cloud.waitForCustomizedCleaning(
+          device.did,
+          true,
+        );
+      }
+
       return;
     }
+
+    await cloud.setCustomizedCleaning(
+      device.did,
+      false,
+    );
 
     await cloud.setCleaningMode(
       device.did,
       mode,
     );
 
-    await cloud.setCustomizedCleaning(
-      device.did,
-      false,
-    );
+    if (confirmState) {
+      await cloud.waitForCustomizedCleaning(
+        device.did,
+        false,
+      );
+    }
   };
 
   const updateLiveStatus = async (): Promise<void> => {
@@ -665,14 +685,33 @@ export async function registerMovaMatterVacuum(
             await execute(
               commandDescription,
               async () => {
+                let customizedPlan: MovaRoomCleaningPlan | undefined;
+
+                if (
+                  selectedCleaningMode === 4
+                  && selectedRoomIds.length > 0
+                ) {
+                  const currentRooms = await cloud.getRooms(device);
+                  customizedPlan = createCustomizedRoomCleaningPlan(
+                    currentRooms,
+                    selectedRoomIds,
+                  );
+
+                  log.info(
+                    `Automatischer Raumplan: ${customizedPlan.description}.`,
+                  );
+                }
+
                 await configureCleaningMode(
                   selectedCleaningMode,
+                  true,
                 );
 
                 if (selectedRoomIds.length > 0) {
                   await cloud.startRoomCleaning(
                     device.did,
                     selectedRoomIds,
+                    customizedPlan?.selects,
                   );
                 } else {
                   await cloud.startCleaning(device.did);

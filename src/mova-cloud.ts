@@ -5,6 +5,10 @@ import {
   decodeMovaRooms,
   type MovaRoom,
 } from './mova-map.js';
+import {
+  createStandardRoomCleaningSelections,
+  type MovaRoomCleaningSelection,
+} from './mova-cleaning.js';
 
 export type { MovaRoom } from './mova-map.js';
 
@@ -20,6 +24,8 @@ const MOVA_CLOUD = {
 const REQUEST_TIMEOUT_MS = 15_000;
 const FALLBACK_SESSION_LIFETIME_MS = 60 * 60 * 1000;
 const SESSION_REFRESH_MARGIN_MS = 60_000;
+const CUSTOMIZED_CLEANING_CONFIRM_ATTEMPTS = 5;
+const CUSTOMIZED_CLEANING_CONFIRM_DELAY_MS = 500;
 
 interface MovaSession {
   access_token?: string;
@@ -643,20 +649,13 @@ export class MovaCloud {
 
   async startRoomCleaning(
     did: string | number,
-    roomIds: number[],
+    roomIds: readonly number[],
+    selections?: readonly MovaRoomCleaningSelection[],
   ): Promise<void> {
-    const uniqueRoomIds = [...new Set(roomIds)]
-      .filter(roomId => Number.isInteger(roomId) && roomId > 0);
-
-    if (uniqueRoomIds.length === 0) {
-      throw new Error(
-        'Für die Raumreinigung wurde kein gültiger Raum ausgewählt.',
-      );
-    }
-
-    const selects = uniqueRoomIds.map(
-      roomId => [roomId, 1, 0, 0, 1],
-    );
+    const selects = selections
+      ? selections.map(selection => [...selection])
+      : createStandardRoomCleaningSelections(roomIds)
+        .map(selection => [...selection]);
 
     await this.sendAction(
       did,
@@ -690,6 +689,37 @@ export class MovaCloud {
       26,
       enabled ? 1 : 0,
       'Angepasste Raumreinigung konnte nicht umgeschaltet werden',
+    );
+  }
+
+  async waitForCustomizedCleaning(
+    did: string | number,
+    enabled: boolean,
+  ): Promise<void> {
+    const expectedValue = enabled ? 1 : 0;
+
+    for (
+      let attempt = 1;
+      attempt <= CUSTOMIZED_CLEANING_CONFIRM_ATTEMPTS;
+      attempt += 1
+    ) {
+      if (attempt > 1) {
+        await new Promise<void>(resolve => {
+          setTimeout(resolve, CUSTOMIZED_CLEANING_CONFIRM_DELAY_MS);
+        });
+      }
+
+      const status = await this.getVacuumStatus(did);
+
+      if (status.customizedCleaning === expectedValue) {
+        return;
+      }
+    }
+
+    throw new Error(
+      enabled
+        ? 'Der Roboter hat die automatische Raumreinigung nicht rechtzeitig übernommen.'
+        : 'Der Roboter hat den einheitlichen Reinigungsmodus nicht rechtzeitig übernommen.',
     );
   }
 

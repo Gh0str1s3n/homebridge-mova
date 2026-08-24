@@ -21,7 +21,7 @@ are not currently supported.
 - Start cleaning, pause, resume and return to the dock
 - Live operational and battery status
 - Vacuum, mop, vacuum-and-mop and sequential cleaning modes
-- Custom room cleaning mode
+- Automatic per-room cleaning with the settings saved in the MOVA app
 - Selection of one or multiple rooms from the saved MOVA map
 
 ## Requirements
@@ -91,6 +91,22 @@ configuration in an issue or support request.
 When a saved MOVA map is available, its rooms are exposed through Matter's
 Service Area feature. Select one or more rooms in Apple Home before starting
 the vacuum. Starting without a room selection performs a complete cleaning.
+
+To retain the individual cleaning mode configured for each room in the MOVA
+app, select **Vacuum and Mop** and then **Automatic** in Apple Home. Apple Home
+groups the Automatic option below Vacuum and Mop; Automatic still means that
+the plugin applies each room's own MOVA setting. For example, a selected room
+configured as vacuum-only remains vacuum-only while another selected room can
+vacuum and mop in the same run.
+
+The plugin reloads the current MOVA map before an automatic room run and waits
+for the vacuum to confirm customized cleaning before it starts. If a selected
+room has no safe individual setting, the run is rejected instead of risking an
+incorrect mop operation. Set the room's cleaning mode in the MOVA app and
+try the start again in that case.
+
+Choosing Vacuum, Mop, Vacuum and Mop or sequential cleaning without Automatic
+intentionally applies that one mode to every selected room.
 
 ## Troubleshooting
 
