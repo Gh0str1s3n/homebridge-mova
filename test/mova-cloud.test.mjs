@@ -65,6 +65,35 @@ test('sendet den individuellen Raumplan unverändert an MOVA', async () => {
   ]);
 });
 
+test('überlässt im Automatikmodus die Raumwerte dem MOVA-Roboter', async () => {
+  const cloud = new MovaCloud('test@example.com', 'secret');
+  let action;
+
+  cloud.sendAction = async (...args) => {
+    action = args;
+  };
+
+  await cloud.startRoomCleaning('vacuum-1', [6, 3]);
+
+  assert.deepEqual(action, [
+    'vacuum-1',
+    4,
+    1,
+    [
+      { piid: 1, value: 18 },
+      {
+        piid: 10,
+        value: JSON.stringify({
+          selects: [
+            [6, 1, 0, 0, 1],
+            [3, 1, 0, 0, 2],
+          ],
+        }),
+      },
+    ],
+  ]);
+});
+
 test('bestätigt den von MOVA gemeldeten Automatikmodus', async () => {
   const cloud = new MovaCloud('test@example.com', 'secret');
   let statusRequests = 0;

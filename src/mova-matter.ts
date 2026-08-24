@@ -10,11 +10,6 @@ import type {
   MovaRoom,
   MovaVacuumStatus,
 } from './mova-cloud.js';
-import {
-  createCustomizedRoomCleaningPlan,
-  type MovaRoomCleaningPlan,
-} from './mova-cleaning.js';
-
 const PLUGIN_NAME = 'homebridge-mova';
 const MATTER_PLATFORM_NAME = 'MovaVacuum';
 const STATUS_UPDATE_INTERVAL_MS = 10_000;
@@ -685,8 +680,6 @@ export async function registerMovaMatterVacuum(
             await execute(
               commandDescription,
               async () => {
-                let customizedPlan: MovaRoomCleaningPlan | undefined;
-
                 await configureCleaningMode(
                   selectedCleaningMode,
                   true,
@@ -696,15 +689,9 @@ export async function registerMovaMatterVacuum(
                   selectedCleaningMode === 4
                   && selectedRoomIds.length > 0
                 ) {
-                  const currentRooms =
-                    await cloud.getRoomsWithCleaningSettings(device);
-                  customizedPlan = createCustomizedRoomCleaningPlan(
-                    currentRooms,
-                    selectedRoomIds,
-                  );
-
                   log.info(
-                    `Automatischer Raumplan: ${customizedPlan.description}.`,
+                    'Automatische MOVA-Raumeinstellungen werden für '
+                    + `${selectedRoomNames.join(', ')} verwendet.`,
                   );
                 }
 
@@ -712,7 +699,6 @@ export async function registerMovaMatterVacuum(
                   await cloud.startRoomCleaning(
                     device.did,
                     selectedRoomIds,
-                    customizedPlan?.selects,
                   );
                 } else {
                   await cloud.startCleaning(device.did);

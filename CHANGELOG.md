@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1-beta.2 - 2026-08-24
+
+- Let the vacuum apply its own saved per-room cleaning settings after it has
+  confirmed customized cleaning mode
+- Do not block room cleaning when the live map object is unavailable through
+  the MOVA cloud
+
 ## 1.0.1-beta.1 - 2026-08-24
 
 - Read individual room settings from the active MOVA map because saved map
