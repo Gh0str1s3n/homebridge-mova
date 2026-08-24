@@ -249,3 +249,35 @@ export function decodeMovaRooms(
       };
     });
 }
+
+export function mergeMovaRoomCleaningSettings(
+  storedRooms: readonly MovaRoom[],
+  currentRooms: readonly MovaRoom[],
+): MovaRoom[] {
+  const currentRoomById = new Map(
+    currentRooms.map(room => [room.id, room]),
+  );
+
+  const mergedRooms = storedRooms.map(room => {
+    const currentRoom = currentRoomById.get(room.id);
+
+    return {
+      ...room,
+      ...(currentRoom?.cleaningSettings
+        ? { cleaningSettings: currentRoom.cleaningSettings }
+        : {}),
+    };
+  });
+
+  const storedRoomIds = new Set(
+    storedRooms.map(room => room.id),
+  );
+
+  for (const currentRoom of currentRooms) {
+    if (!storedRoomIds.has(currentRoom.id)) {
+      mergedRooms.push(currentRoom);
+    }
+  }
+
+  return mergedRooms;
+}

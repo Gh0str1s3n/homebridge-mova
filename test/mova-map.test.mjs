@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deflateSync } from 'node:zlib';
 
-import { decodeMovaRooms } from '../dist/mova-map.js';
+import {
+  decodeMovaRooms,
+  mergeMovaRoomCleaningSettings,
+} from '../dist/mova-map.js';
 
 function createEncodedMap(metadata) {
   const width = 3;
@@ -90,4 +93,42 @@ test('ignoriert beschädigte cleanset-Werte sicher', () => {
   const rooms = decodeMovaRooms(encodedMap);
 
   assert.equal(rooms[0].cleaningSettings, undefined);
+});
+
+test('führt Namen der gespeicherten Karte mit aktiven Raumwerten zusammen', () => {
+  const storedRooms = [
+    {
+      id: 1,
+      name: 'Küche',
+      mapId: 42,
+      type: 4,
+      index: 0,
+    },
+  ];
+  const currentRooms = [
+    {
+      id: 1,
+      name: 'Raum 1',
+      mapId: 42,
+      type: null,
+      index: null,
+      cleaningSettings: {
+        suctionLevel: 3,
+        waterVolume: 2,
+        cleaningTimes: 1,
+        order: 0,
+        cleaningMode: 0,
+      },
+    },
+  ];
+
+  assert.deepEqual(
+    mergeMovaRoomCleaningSettings(storedRooms, currentRooms),
+    [
+      {
+        ...storedRooms[0],
+        cleaningSettings: currentRooms[0].cleaningSettings,
+      },
+    ],
+  );
 });

@@ -1,7 +1,33 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { MovaCloud } from '../dist/mova-cloud.js';
+import {
+  decodeMovaMapObjectName,
+  decodeMovaMapPayload,
+  MovaCloud,
+} from '../dist/mova-cloud.js';
+
+test('liest den Dateiverweis der aktiven Karte aus MOVA-Formaten', () => {
+  assert.equal(
+    decodeMovaMapObjectName('["active-map-file", 123]'),
+    'active-map-file',
+  );
+  assert.equal(
+    decodeMovaMapObjectName({ object_name: 'active-map-file' }),
+    'active-map-file',
+  );
+});
+
+test('normalisiert den Inhalt einer aktiven Kartendatei', () => {
+  assert.equal(
+    decodeMovaMapPayload(Buffer.from('encoded-map\n')),
+    'encoded-map',
+  );
+  assert.equal(
+    decodeMovaMapPayload('"encoded-map"'),
+    'encoded-map',
+  );
+});
 
 test('sendet den individuellen Raumplan unverändert an MOVA', async () => {
   const cloud = new MovaCloud('test@example.com', 'secret');

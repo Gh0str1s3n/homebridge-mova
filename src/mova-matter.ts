@@ -687,11 +687,17 @@ export async function registerMovaMatterVacuum(
               async () => {
                 let customizedPlan: MovaRoomCleaningPlan | undefined;
 
+                await configureCleaningMode(
+                  selectedCleaningMode,
+                  true,
+                );
+
                 if (
                   selectedCleaningMode === 4
                   && selectedRoomIds.length > 0
                 ) {
-                  const currentRooms = await cloud.getRooms(device);
+                  const currentRooms =
+                    await cloud.getRoomsWithCleaningSettings(device);
                   customizedPlan = createCustomizedRoomCleaningPlan(
                     currentRooms,
                     selectedRoomIds,
@@ -701,11 +707,6 @@ export async function registerMovaMatterVacuum(
                     `Automatischer Raumplan: ${customizedPlan.description}.`,
                   );
                 }
-
-                await configureCleaningMode(
-                  selectedCleaningMode,
-                  true,
-                );
 
                 if (selectedRoomIds.length > 0) {
                   await cloud.startRoomCleaning(

@@ -3,6 +3,7 @@ import { createCipheriv, createHash } from 'node:crypto';
 
 import {
   decodeMovaRooms,
+  mergeMovaRoomCleaningSettings,
   type MovaRoom,
 } from './mova-map.js';
 import {
@@ -112,6 +113,75 @@ interface MovaStoredMapEntry {
 interface MovaStoredMapFile {
   curr_id?: number;
   mapstr?: MovaStoredMapEntry[];
+}
+
+export function decodeMovaMapObjectName(
+  value: unknown,
+): string | undefined {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue) {
+      return undefined;
+    }
+
+    try {
+      const decoded = JSON.parse(trimmedValue) as unknown;
+      return decodeMovaMapObjectName(decoded);
+    } catch {
+      return trimmedValue;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return decodeMovaMapObjectName(value[0]);
+  }
+
+  if (value && typeof value === 'object') {
+    const descriptor = value as Record<string, unknown>;
+    return decodeMovaMapObjectName(
+      descriptor.object_name ?? descriptor.obj_name,
+    );
+  }
+
+  return undefined;
+}
+
+export function decodeMovaMapPayload(
+  value: unknown,
+): string | undefined {
+  if (Buffer.isBuffer(value)) {
+    return value.toString('utf8').trim() || undefined;
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue) {
+      return undefined;
+    }
+
+    if (
+      trimmedValue.startsWith('"')
+      || trimmedValue.startsWith('{')
+    ) {
+      try {
+        const decoded = JSON.parse(trimmedValue) as unknown;
+        return decodeMovaMapPayload(decoded);
+      } catch {
+        return trimmedValue;
+      }
+    }
+
+    return trimmedValue;
+  }
+
+  if (value && typeof value === 'object') {
+    const payload = value as Record<string, unknown>;
+    return decodeMovaMapPayload(payload.map ?? payload.data);
+  }
+
+  return undefined;
 }
 
 export class MovaCloud {
@@ -529,6 +599,8 @@ export class MovaCloud {
     }
 
     const preferredMap = mapEntries.find(
+      entry => entry.id === mapFile.curr_id,
+    ) ?? mapEntries.find(
       entry => entry.first === 0 || entry.id === 0,
     ) ?? mapEntries[0];
     const encodedMap = preferredMap.thb ?? preferredMap.map;
@@ -548,6 +620,127 @@ export class MovaCloud {
     }
 
     return rooms;
+  }
+
+  async getRoomsWithCleaningSettings(
+    device: MovaDevice,
+  ): Promise<MovaRoom[]> {
+    const storedRooms = await this.getRooms(device);
+    const requestId = Math.floor(Math.random() * 9000) + 1000;
+    const response =
+      await this.postAuthenticated<MovaCommandResponse>(
+        this.getCommandEndpoint(),
+        {
+          did: device.did,
+          id: requestId,
+          data: {
+            did: device.did,
+            id: requestId,
+            method: 'get_properties',
+            params: [
+              {
+                did: device.did,
+                siid: 6,
+                piid: 3,
+                code: 0,
+                updateTime: 0,
+              },
+            ],
+            from: 'XXXXXX',
+          },
+        },
+      );
+
+    const currentMapProperty = response.data?.result?.find(
+      result => result.siid === 6 && result.piid === 3,
+    ) ?? response.data?.result?.[0];
+
+    if (
+      response.code !== 0
+      || (
+        currentMapProperty?.code !== undefined
+        && currentMapProperty.code !== 0
+      )
+    ) {
+      throw new Error(
+        `Aktive MOVA-Karte konnte nicht gelesen werden. Code: ${
+          currentMapProperty?.code
+          ?? response.code
+          ?? 'unbekannt'
+        }`,
+      );
+    }
+
+    const mapObjectReference = decodeMovaMapObjectName(
+      currentMapProperty?.value,
+    );
+    const mapObjectName = mapObjectReference
+      ?.split(',', 1)[0]
+      ?.trim();
+
+    if (!mapObjectName) {
+      throw new Error(
+        'Die aktive MOVA-Karte enthält keinen Dateiverweis.',
+      );
+    }
+
+    const downloadUrl =
+      await this.postAuthenticated<MovaDownloadUrlResponse>(
+        `https://${MOVA_CLOUD.domain}/dreame-user-iot/iotfile/getDownloadUrl`,
+        {
+          did: device.did,
+          model: device.model,
+          filename: mapObjectName,
+          region: 'eu',
+        },
+      );
+
+    if (downloadUrl.code !== 0 || !downloadUrl.data) {
+      throw new Error(
+        `Download der aktiven MOVA-Karte konnte nicht vorbereitet werden. Code: ${
+          downloadUrl.code ?? 'unbekannt'
+        }${downloadUrl.msg ? ` – ${downloadUrl.msg}` : ''}`,
+      );
+    }
+
+    const downloaded = await axios.get<unknown>(
+      downloadUrl.data,
+      {
+        timeout: REQUEST_TIMEOUT_MS,
+      },
+    );
+    const encodedMap = decodeMovaMapPayload(downloaded.data);
+
+    if (!encodedMap) {
+      throw new Error(
+        'Die aktive MOVA-Karte enthält kein Raumabbild.',
+      );
+    }
+
+    let currentRooms: MovaRoom[];
+
+    try {
+      currentRooms = decodeMovaRooms(encodedMap);
+    } catch (error: unknown) {
+      const message = error instanceof Error
+        ? error.message
+        : String(error);
+
+      throw new Error(
+        `Die aktive MOVA-Karte konnte nicht ausgewertet werden: ${message}`,
+      );
+    }
+
+    if (currentRooms.length === 0) {
+      throw new Error(
+        'In der aktiven MOVA-Karte wurden keine Räume erkannt.',
+      );
+    }
+
+    return mergeMovaRoomCleaningSettings(
+      storedRooms,
+      currentRooms,
+    );
   }
 
   private async sendAction(

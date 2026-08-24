@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1-beta.1 - 2026-08-24
+
+- Read individual room settings from the active MOVA map because saved map
+  listings intentionally omit customized cleaning data
+- Merge current cleaning settings with the stable room names and identifiers
+  from the saved map
+
 ## 1.0.1-beta.0 - 2026-08-24
 
 - Preserve the individual MOVA cleaning mode, suction level, water volume and
