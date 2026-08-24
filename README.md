@@ -23,6 +23,8 @@ are not currently supported.
 - Vacuum, mop, vacuum-and-mop and sequential cleaning modes
 - Automatic per-room cleaning with the settings saved in the MOVA app
 - Selection of one or multiple rooms from the saved MOVA map
+- Experimental ordered cleaning presets with per-room power, water and repeat
+  settings
 
 ## Requirements
 
@@ -58,11 +60,11 @@ Equivalent configuration:
 }
 ```
 
-Run the plugin as a child bridge. The recommended setup is **Matter
-externals-only mode** with HAP disabled. In the stored bridge configuration,
-`matter.enabled` is `false`, `matter.externalsOnly` is `true` and `hap.enabled`
-is `false`. The vacuum requires its own Matter node, so this avoids publishing
-an additional empty bridge and the associated Homebridge warning.
+Run the plugin as a child bridge. Without cleaning presets, the recommended
+setup is **Matter externals-only mode** with HAP disabled. In the stored bridge
+configuration, `matter.enabled` is `false`, `matter.externalsOnly` is `true`
+and `hap.enabled` is `false`. When presets are configured, keep Matter in
+externals-only mode but enable HAP so Homebridge can publish their switches.
 
 Restart Homebridge after saving the configuration. Homebridge publishes the
 vacuum as a separate external Matter accessory. Open the plugin actions and
@@ -99,14 +101,33 @@ the plugin applies each room's own MOVA setting. For example, a selected room
 configured as vacuum-only remains vacuum-only while another selected room can
 vacuum and mop in the same run.
 
-The plugin reloads the current MOVA map before an automatic room run and waits
-for the vacuum to confirm customized cleaning before it starts. If a selected
-room has no safe individual setting, the run is rejected instead of risking an
-incorrect mop operation. Set the room's cleaning mode in the MOVA app and
-try the start again in that case.
+Before an automatic room run, the plugin enables customized cleaning and waits
+for the vacuum to confirm that mode. The vacuum then applies the room settings
+currently saved in the MOVA app.
 
 Choosing Vacuum, Mop, Vacuum and Mop or sequential cleaning without Automatic
 intentionally applies that one mode to every selected room.
+
+## Experimental cleaning presets
+
+Version 1.1.0 alpha adds optional cleaning presets. Open the plugin settings,
+load the rooms from the MOVA account and create one or more presets. Rooms can
+be moved up or down to define their cleaning order. The command also encodes
+a suction level, water volume and repeat count for every room. This is an alpha
+feature because the MOVA firmware may apply some of those values globally.
+
+The preset's **individual MOVA room settings** mode retains the cleaning type
+saved for each room in the MOVA app. The other preset modes intentionally use
+one cleaning type for every room in that preset.
+
+Preset buttons are HAP accessories, while the vacuum itself remains a native
+Matter accessory. Enable HAP for the MOVA child bridge and pair its HomeKit
+code in addition to the vacuum's Matter code. Each preset then appears as a
+separate momentary switch in Apple Home and can be used with Siri, scenes and
+automations.
+
+This interface is experimental. Confirm the room order and cleaning settings
+with a short supervised run before using a new preset unattended.
 
 ## Troubleshooting
 

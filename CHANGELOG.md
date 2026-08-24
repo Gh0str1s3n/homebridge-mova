@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0-alpha.0 - 2026-08-24
+
+- Add an experimental custom Homebridge configuration interface that loads
+  the user's rooms directly from the MOVA account
+- Add ordered cleaning presets with per-room suction level, water volume and
+  repeat count
+- Publish each configured preset as a momentary HAP switch for Apple Home,
+  Siri, scenes and automations
+- Keep the native Matter vacuum available alongside the optional preset
+  switches
+- Validate preset data and warn when a configured room no longer exists
+
 ## 1.0.1-beta.2 - 2026-08-24
 
 - Let the vacuum apply its own saved per-room cleaning settings after it has

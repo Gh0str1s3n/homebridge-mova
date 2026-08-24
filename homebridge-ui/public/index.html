@@ -1,0 +1,393 @@
+<style>
+  .mova-section {
+    margin-bottom: 1rem;
+  }
+
+  .mova-card {
+    border: 1px solid var(--bs-border-color, #495057);
+    border-radius: .6rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .mova-card-header,
+  .mova-room-header,
+  .mova-actions {
+    align-items: center;
+    display: flex;
+    gap: .5rem;
+    justify-content: space-between;
+  }
+
+  .mova-room {
+    background: rgba(127, 127, 127, .08);
+    border-radius: .5rem;
+    margin-top: .75rem;
+    padding: .75rem;
+  }
+
+  .mova-room-grid {
+    display: grid;
+    gap: .65rem;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+    margin-top: .65rem;
+  }
+
+  .mova-muted {
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: .9rem;
+  }
+
+  .mova-order {
+    background: #491f59;
+    border-radius: 999px;
+    color: white;
+    display: inline-grid;
+    font-weight: 700;
+    height: 1.8rem;
+    place-items: center;
+    width: 1.8rem;
+  }
+
+  .mova-empty {
+    border: 1px dashed var(--bs-border-color, #6c757d);
+    border-radius: .6rem;
+    padding: 1.25rem;
+    text-align: center;
+  }
+</style>
+
+<div class="mova-section">
+  <h4>MOVA-Verbindung</h4>
+  <div class="mb-3">
+    <label class="form-label" for="mova-name">Plugin-Name</label>
+    <input class="form-control" id="mova-name" type="text">
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="mova-username">MOVA-E-Mail-Adresse</label>
+    <input class="form-control" id="mova-username" type="email" autocomplete="username">
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="mova-password">MOVA-Passwort</label>
+    <input class="form-control" id="mova-password" type="password" autocomplete="current-password">
+  </div>
+  <button class="btn btn-primary" id="discover-rooms" type="button">
+    Räume aus der MOVA-App laden
+  </button>
+  <div class="mova-muted mt-2" id="room-status"></div>
+</div>
+
+<hr>
+
+<div class="mova-section">
+  <div class="mova-card-header mb-2">
+    <div>
+      <h4 class="mb-1">Reinigungspresets <span class="badge text-bg-warning">Alpha</span></h4>
+      <div class="mova-muted">
+        Jedes Preset erscheint als eigener Taster in Apple Home. Die Räume werden von oben nach unten gereinigt.
+      </div>
+    </div>
+    <button class="btn btn-success" id="add-preset" type="button">Preset hinzufügen</button>
+  </div>
+
+  <div class="alert alert-warning">
+    Die Preset-Taster werden über HAP veröffentlicht. Aktiviere HAP für die MOVA-Child-Bridge und kopple ihren HomeKit-Code zusätzlich zum Matter-Saugroboter.
+  </div>
+
+  <div id="preset-list"></div>
+</div>
+
+<script>
+  (() => {
+    const state = {
+      config: null,
+      roomCatalog: [],
+      presets: [],
+    };
+
+    const elements = {
+      name: document.getElementById('mova-name'),
+      username: document.getElementById('mova-username'),
+      password: document.getElementById('mova-password'),
+      discover: document.getElementById('discover-rooms'),
+      roomStatus: document.getElementById('room-status'),
+      addPreset: document.getElementById('add-preset'),
+      presetList: document.getElementById('preset-list'),
+    };
+
+    const escapeHtml = value => String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+
+    const createId = () => globalThis.crypto?.randomUUID?.()
+      || `preset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const parseMode = value => value === 'automatic'
+      ? value
+      : Number(value);
+
+    const updateConfig = async () => {
+      state.config.name = elements.name.value.trim() || 'MOVA';
+      state.config.username = elements.username.value.trim();
+      state.config.password = elements.password.value;
+      state.config.roomCatalog = state.roomCatalog;
+      state.config.presets = state.presets;
+      state.config.platform = 'MovaVacuum';
+
+      await homebridge.updatePluginConfig([state.config]);
+      homebridge.enableSaveButton();
+    };
+
+    const renderRoom = (preset, presetIndex, room, roomIndex) => `
+      <div class="mova-room" data-preset-index="${presetIndex}" data-room-index="${roomIndex}">
+        <div class="mova-room-header">
+          <div class="d-flex align-items-center gap-2">
+            <span class="mova-order">${roomIndex + 1}</span>
+            <strong>${escapeHtml(room.roomName)}</strong>
+          </div>
+          <div class="mova-actions">
+            <button class="btn btn-sm btn-outline-secondary move-room-up" type="button" ${roomIndex === 0 ? 'disabled' : ''} title="Nach oben">↑</button>
+            <button class="btn btn-sm btn-outline-secondary move-room-down" type="button" ${roomIndex === preset.rooms.length - 1 ? 'disabled' : ''} title="Nach unten">↓</button>
+            <button class="btn btn-sm btn-outline-danger remove-room" type="button">Entfernen</button>
+          </div>
+        </div>
+        <div class="mova-room-grid">
+          <label>
+            <span class="form-label">Durchgänge</span>
+            <select class="form-select room-setting" data-setting="cleaningTimes">
+              ${[1, 2, 3].map(value => `<option value="${value}" ${room.cleaningTimes === value ? 'selected' : ''}>${value}×</option>`).join('')}
+            </select>
+          </label>
+          <label>
+            <span class="form-label">Saugkraft</span>
+            <select class="form-select room-setting" data-setting="suctionLevel">
+              ${['Leise', 'Standard', 'Stark', 'Turbo'].map((label, value) => `<option value="${value}" ${room.suctionLevel === value ? 'selected' : ''}>${label}</option>`).join('')}
+            </select>
+          </label>
+          <label>
+            <span class="form-label">Wassermenge</span>
+            <select class="form-select room-setting" data-setting="waterVolume">
+              ${['Niedrig', 'Mittel', 'Hoch'].map((label, value) => `<option value="${value}" ${room.waterVolume === value ? 'selected' : ''}>${label}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+      </div>
+    `;
+
+    const renderPreset = (preset, presetIndex) => {
+      const unusedRooms = state.roomCatalog.filter(room =>
+        !preset.rooms.some(selected => selected.roomId === room.id));
+
+      return `
+        <div class="mova-card" data-preset-index="${presetIndex}">
+          <div class="mova-card-header">
+            <strong>Preset ${presetIndex + 1}</strong>
+            <button class="btn btn-sm btn-outline-danger remove-preset" type="button">Preset löschen</button>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-6">
+              <label class="form-label">Name in Apple Home</label>
+              <input class="form-control preset-name" type="text" value="${escapeHtml(preset.name)}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Reinigungsart</label>
+              <select class="form-select preset-mode">
+                <option value="automatic" ${preset.mode === 'automatic' ? 'selected' : ''}>Individuelle MOVA-Raumeinstellungen</option>
+                <option value="0" ${preset.mode === 0 ? 'selected' : ''}>Saugen</option>
+                <option value="1" ${preset.mode === 1 ? 'selected' : ''}>Wischen</option>
+                <option value="2" ${preset.mode === 2 ? 'selected' : ''}>Saugen und Wischen</option>
+                <option value="3" ${preset.mode === 3 ? 'selected' : ''}>Wischen nach dem Saugen</option>
+              </select>
+            </div>
+          </div>
+          <div class="mova-muted mt-2">
+            „Individuell“ übernimmt die in der MOVA-App gespeicherte Reinigungsart jedes Raums. Die hier gewählten Stufen und die Reihenfolge werden direkt gesendet.
+          </div>
+          <div class="preset-rooms">
+            ${preset.rooms.map((room, roomIndex) => renderRoom(preset, presetIndex, room, roomIndex)).join('')}
+          </div>
+          <div class="input-group mt-3">
+            <select class="form-select room-to-add" ${unusedRooms.length === 0 ? 'disabled' : ''}>
+              ${unusedRooms.length > 0
+                ? unusedRooms.map(room => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('')
+                : '<option>Alle Räume hinzugefügt</option>'}
+            </select>
+            <button class="btn btn-outline-primary add-room" type="button" ${unusedRooms.length === 0 ? 'disabled' : ''}>Raum hinzufügen</button>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderPresets = () => {
+      elements.presetList.innerHTML = state.presets.length > 0
+        ? state.presets.map(renderPreset).join('')
+        : '<div class="mova-empty mova-muted">Noch keine Presets angelegt.</div>';
+    };
+
+    const findPresetIndex = target => Number(
+      target.closest('[data-preset-index]')?.dataset.presetIndex,
+    );
+
+    const findRoomIndex = target => Number(
+      target.closest('[data-room-index]')?.dataset.roomIndex,
+    );
+
+    elements.name.addEventListener('input', updateConfig);
+    elements.username.addEventListener('input', updateConfig);
+    elements.password.addEventListener('input', updateConfig);
+
+    elements.discover.addEventListener('click', async () => {
+      elements.discover.disabled = true;
+      elements.roomStatus.textContent = 'MOVA-Räume werden geladen …';
+
+      try {
+        const result = await homebridge.request('/discover-rooms', {
+          username: elements.username.value.trim(),
+          password: elements.password.value,
+        });
+
+        state.roomCatalog = Array.isArray(result.rooms)
+          ? result.rooms
+          : [];
+        elements.roomStatus.textContent = `${state.roomCatalog.length} Räume von ${result.device.name} geladen: ${state.roomCatalog.map(room => room.name).join(', ')}.`;
+        await updateConfig();
+        renderPresets();
+        homebridge.toast.success(
+          `${state.roomCatalog.length} MOVA-Räume wurden geladen.`,
+          'MOVA',
+        );
+      } catch (error) {
+        const message = error instanceof Error
+          ? error.message
+          : String(error);
+        elements.roomStatus.textContent = message;
+        homebridge.toast.error(message, 'MOVA');
+      } finally {
+        elements.discover.disabled = false;
+      }
+    });
+
+    elements.addPreset.addEventListener('click', async () => {
+      if (state.roomCatalog.length === 0) {
+        homebridge.toast.error(
+          'Bitte zuerst die Räume aus der MOVA-App laden.',
+          'MOVA',
+        );
+        return;
+      }
+
+      state.presets.push({
+        id: createId(),
+        name: `MOVA Preset ${state.presets.length + 1}`,
+        mode: 'automatic',
+        rooms: [],
+      });
+      renderPresets();
+      await updateConfig();
+    });
+
+    elements.presetList.addEventListener('input', async event => {
+      const target = event.target;
+      const presetIndex = findPresetIndex(target);
+      const roomIndex = findRoomIndex(target);
+      const preset = state.presets[presetIndex];
+
+      if (!preset) {
+        return;
+      }
+
+      if (target.classList.contains('preset-name')) {
+        preset.name = target.value;
+      } else if (target.classList.contains('preset-mode')) {
+        preset.mode = parseMode(target.value);
+      } else if (
+        target.classList.contains('room-setting')
+        && preset.rooms[roomIndex]
+      ) {
+        preset.rooms[roomIndex][target.dataset.setting] = Number(target.value);
+      }
+
+      await updateConfig();
+    });
+
+    elements.presetList.addEventListener('click', async event => {
+      const target = event.target.closest('button');
+
+      if (!target) {
+        return;
+      }
+
+      const presetIndex = findPresetIndex(target);
+      const roomIndex = findRoomIndex(target);
+      const preset = state.presets[presetIndex];
+
+      if (!preset) {
+        return;
+      }
+
+      if (target.classList.contains('remove-preset')) {
+        state.presets.splice(presetIndex, 1);
+      } else if (target.classList.contains('add-room')) {
+        const select = target.closest('.input-group').querySelector('.room-to-add');
+        const roomId = Number(select.value);
+        const room = state.roomCatalog.find(candidate => candidate.id === roomId);
+
+        if (room) {
+          preset.rooms.push({
+            roomId: room.id,
+            roomName: room.name,
+            cleaningTimes: 1,
+            suctionLevel: 0,
+            waterVolume: 0,
+          });
+        }
+      } else if (target.classList.contains('remove-room')) {
+        preset.rooms.splice(roomIndex, 1);
+      } else if (target.classList.contains('move-room-up') && roomIndex > 0) {
+        [preset.rooms[roomIndex - 1], preset.rooms[roomIndex]] = [
+          preset.rooms[roomIndex],
+          preset.rooms[roomIndex - 1],
+        ];
+      } else if (
+        target.classList.contains('move-room-down')
+        && roomIndex < preset.rooms.length - 1
+      ) {
+        [preset.rooms[roomIndex + 1], preset.rooms[roomIndex]] = [
+          preset.rooms[roomIndex],
+          preset.rooms[roomIndex + 1],
+        ];
+      }
+
+      renderPresets();
+      await updateConfig();
+    });
+
+    homebridge.addEventListener('ready', async () => {
+      const pluginConfigs = await homebridge.getPluginConfig();
+      state.config = pluginConfigs[0] || {
+        platform: 'MovaVacuum',
+        name: 'MOVA',
+      };
+      state.roomCatalog = Array.isArray(state.config.roomCatalog)
+        ? state.config.roomCatalog
+        : [];
+      state.presets = Array.isArray(state.config.presets)
+        ? state.config.presets
+        : [];
+
+      elements.name.value = state.config.name || 'MOVA';
+      elements.username.value = state.config.username || '';
+      elements.password.value = state.config.password || '';
+      elements.roomStatus.textContent = state.roomCatalog.length > 0
+        ? `${state.roomCatalog.length} gespeicherte Räume verfügbar.`
+        : 'Noch keine Räume geladen.';
+
+      renderPresets();
+      await updateConfig();
+      homebridge.hideSpinner();
+    });
+  })();
+</script>
