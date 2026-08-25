@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1-beta.3 - 2026-08-25
+
+- Keep Vacuum, Mop and Vacuum and Mop as the three persistent main modes
+- Treat Automatic and Deep Clean as explicitly selected options for the next
+  cleaning run instead of inheriting MOVA's stored option while idle
+- Return Apple Home to neutral Vacuum and Mop after an optional cleaning run
+  finishes or the vacuum is sent back to the station
+
 ## 1.0.1-beta.2 - 2026-08-24
 
 - Let the vacuum apply its own saved per-room cleaning settings after it has

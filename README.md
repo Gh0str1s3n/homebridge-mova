@@ -99,6 +99,11 @@ the plugin applies each room's own MOVA setting. For example, a selected room
 configured as vacuum-only remains vacuum-only while another selected room can
 vacuum and mop in the same run.
 
+Automatic and Deep Clean are optional choices for the next cleaning run. When
+the vacuum is idle, Apple Home returns to the neutral Vacuum and Mop mode even
+if MOVA keeps the previous option internally. Select Automatic or Deep Clean
+again only when the next run should use that option.
+
 The plugin reloads the current MOVA map before an automatic room run and waits
 for the vacuum to confirm customized cleaning before it starts. If a selected
 room has no safe individual setting, the run is rejected instead of risking an
