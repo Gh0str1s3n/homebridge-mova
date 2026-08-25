@@ -1,0 +1,75 @@
+name: New MOVA model support
+description: Request and help verify support for another MOVA robot vacuum
+title: "[Model]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping add another MOVA model. Never include your MOVA email address, password, access token, device ID, Matter pairing code, custom device name, room names or complete Homebridge configuration.
+
+  - type: input
+    id: product_name
+    attributes:
+      label: Product name
+      description: The commercial name printed in the MOVAhome app or on the device.
+      placeholder: MOVA P50 Pro Ultra
+    validations:
+      required: true
+
+  - type: input
+    id: model_identifier
+    attributes:
+      label: MOVA model identifier
+      description: Copy only the mova.vacuum.* identifier from the Homebridge log.
+      placeholder: mova.vacuum.example
+    validations:
+      required: true
+
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Homebridge MOVA version
+      placeholder: 1.2.0-beta.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostic_report
+    attributes:
+      label: Sanitized diagnostic report
+      description: Paste the single log object beginning with "Bereinigter MOVA-Diagnosebericht". Check it once more for personal information before submitting.
+      render: json
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: read_only_checks
+    attributes:
+      label: Read-only checks
+      options:
+        - label: Status was reported successfully
+        - label: Battery level was reported successfully
+        - label: Rooms were detected without including their names here
+
+  - type: checkboxes
+    id: command_checks
+    attributes:
+      label: Experimental command checks
+      description: Complete these only after deliberately enabling experimental full access.
+      options:
+        - label: Start cleaning works
+        - label: Pause and resume work
+        - label: Return to dock works
+        - label: Vacuum mode works
+        - label: Mop mode works
+        - label: Vacuum and Mop mode works
+        - label: Single-room selection works
+        - label: Multi-room selection works
+
+  - type: checkboxes
+    id: privacy_confirmation
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I removed credentials, tokens, device IDs, custom names, room names, Matter codes and other personal data.
+          required: true
