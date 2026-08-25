@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1-beta.4 - 2026-08-25
+
+- Present Vacuum, Mop, Vacuum and Mop, Deep Clean and Automatic per-room
+  cleaning as five independent choices in Apple Home
+- Remove the misleading Automatic checkmark below Vacuum and Mop
+- Keep the selected mode synchronized with the cleaning mode reported by MOVA
+
 ## 1.0.1-beta.3 - 2026-08-25
 
 - Keep Vacuum, Mop and Vacuum and Mop as the three persistent main modes

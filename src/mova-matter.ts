@@ -15,7 +15,45 @@ const MATTER_PLATFORM_NAME = 'MovaVacuum';
 const STATUS_UPDATE_INTERVAL_MS = 10_000;
 const MODE_WRITE_PROTECTION_MS = 15_000;
 const COMMAND_STATUS_DELAY_MS = 2_500;
-const COMBINED_CLEANING_MODE = 2;
+
+export const MOVA_CLEANING_MODES = [
+  {
+    label: 'Saugen',
+    mode: 0,
+    modeTags: [
+      { value: 16385 },
+    ],
+  },
+  {
+    label: 'Wischen',
+    mode: 1,
+    modeTags: [
+      { value: 16386 },
+    ],
+  },
+  {
+    label: 'Saugen und Wischen',
+    mode: 2,
+    modeTags: [
+      { value: 16385 },
+      { value: 16386 },
+    ],
+  },
+  {
+    label: 'Tiefenreinigung',
+    mode: 3,
+    modeTags: [
+      { value: 16384 },
+    ],
+  },
+  {
+    label: 'Automatische Raumreinigung',
+    mode: 4,
+    modeTags: [
+      { value: 0 },
+    ],
+  },
+];
 
 function getOperationalState(device: MovaDevice): number {
   switch (device.latestStatus) {
@@ -211,39 +249,6 @@ function decodeCleaningMode(
   return undefined;
 }
 
-export function isCleaningSessionActive(
-  status: MovaVacuumStatus,
-  operationalState: number,
-): boolean {
-  return operationalState === 1
-    || operationalState === 2
-    || (
-      (
-        operationalState === 68
-        || operationalState === 69
-      )
-      &&
-      status.taskStatus !== undefined
-      && status.taskStatus !== 0
-    );
-}
-
-export function getAppleHomeCleaningMode(
-  reportedMode: number | undefined,
-  extraModeWasSelected: boolean,
-  cleaningSessionActive: boolean,
-): number | undefined {
-  if (
-    (reportedMode === 3 || reportedMode === 4)
-    && !extraModeWasSelected
-    && !cleaningSessionActive
-  ) {
-    return COMBINED_CLEANING_MODE;
-  }
-
-  return reportedMode;
-}
-
 function getCleaningModeLabel(
   mode: number | undefined,
 ): string {
@@ -260,11 +265,11 @@ function getCleaningModeLabel(
   }
 
   if (mode === 3) {
-    return 'Wischen nach dem Saugen';
+    return 'Tiefenreinigung';
   }
 
   if (mode === 4) {
-    return 'Raumreinigung anpassen';
+    return 'Automatische Raumreinigung';
   }
 
   return 'Unbekannt';
@@ -328,12 +333,9 @@ export async function registerMovaMatterVacuum(
     rooms.map(room => [room.id, room]),
   );
 
-  let selectedCleaningMode = COMBINED_CLEANING_MODE;
+  let selectedCleaningMode = 2;
   let selectedRoomIds: number[] = [];
   let modeWriteProtectedUntil = 0;
-  let extraModeWasSelected = false;
-  let extraModeRunActive = false;
-  let extraModeRunObservedActive = false;
   let statusUpdateRunning = false;
   let lastStatusSignature = '';
   let statusErrorWasLogged = false;
@@ -394,39 +396,6 @@ export async function registerMovaMatterVacuum(
     }
   };
 
-  const clearExtraModeSelection = async (
-    reason: string,
-  ): Promise<void> => {
-    const extraModeIsVisible =
-      selectedCleaningMode === 3
-      || selectedCleaningMode === 4;
-
-    if (
-      !extraModeIsVisible
-      && !extraModeWasSelected
-      && !extraModeRunActive
-    ) {
-      return;
-    }
-
-    selectedCleaningMode = COMBINED_CLEANING_MODE;
-    extraModeWasSelected = false;
-    extraModeRunActive = false;
-    extraModeRunObservedActive = false;
-    modeWriteProtectedUntil = 0;
-
-    await matter.updateAccessoryState(
-      uuid,
-      'rvcCleanMode',
-      { currentMode: COMBINED_CLEANING_MODE },
-    );
-
-    log.info(
-      `Reinigungszusatz zurückgesetzt (${reason}): `
-      + 'Saugen und Wischen.',
-    );
-  };
-
   const updateLiveStatus = async (): Promise<void> => {
     if (statusUpdateRunning) {
       return;
@@ -448,22 +417,6 @@ export async function registerMovaMatterVacuum(
         runMode,
         newOperationalState,
       );
-
-      const cleaningSessionActive =
-        isCleaningSessionActive(
-          liveStatus,
-          newOperationalState,
-        );
-
-      if (extraModeRunActive) {
-        if (cleaningSessionActive) {
-          extraModeRunObservedActive = true;
-        } else if (extraModeRunObservedActive) {
-          await clearExtraModeSelection(
-            'Reinigung beendet',
-          );
-        }
-      }
 
       if (liveStatus.battery !== undefined) {
         const liveBattery =
@@ -499,16 +452,9 @@ export async function registerMovaMatterVacuum(
           liveStatus.cleaningModeRaw,
           liveStatus.customizedCleaning,
         );
-      const appleHomeCleaningMode =
-        getAppleHomeCleaningMode(
-          reportedCleaningMode,
-          extraModeWasSelected,
-          cleaningSessionActive,
-        );
-
-      if (appleHomeCleaningMode !== undefined) {
+      if (reportedCleaningMode !== undefined) {
         const modeMatchesSelection =
-          appleHomeCleaningMode === selectedCleaningMode;
+          reportedCleaningMode === selectedCleaningMode;
         const writeProtectionExpired =
           Date.now() >= modeWriteProtectedUntil;
 
@@ -516,12 +462,12 @@ export async function registerMovaMatterVacuum(
           modeMatchesSelection
           || writeProtectionExpired
         ) {
-          selectedCleaningMode = appleHomeCleaningMode;
+          selectedCleaningMode = reportedCleaningMode;
 
           await matter.updateAccessoryState(
             uuid,
             'rvcCleanMode',
-            { currentMode: appleHomeCleaningMode },
+            { currentMode: reportedCleaningMode },
           );
         }
       }
@@ -551,7 +497,7 @@ export async function registerMovaMatterVacuum(
                 ? 'inaktiv'
                 : 'unbekannt'
           }, Modus=${
-            getCleaningModeLabel(appleHomeCleaningMode)
+            getCleaningModeLabel(reportedCleaningMode)
           }.`,
         );
       }
@@ -642,48 +588,7 @@ export async function registerMovaMatterVacuum(
             : 0,
       },
       rvcCleanMode: {
-        supportedModes: [
-          {
-            label: 'Saugen',
-            mode: 0,
-            modeTags: [
-              { value: 16385 },
-            ],
-          },
-          {
-            label: 'Wischen',
-            mode: 1,
-            modeTags: [
-              { value: 16386 },
-            ],
-          },
-          {
-            label: 'Saugen und Wischen',
-            mode: 2,
-            modeTags: [
-              { value: 16385 },
-              { value: 16386 },
-            ],
-          },
-          {
-            label: 'Wischen nach dem Saugen',
-            mode: 3,
-            modeTags: [
-              { value: 16384 },
-              { value: 16385 },
-              { value: 16386 },
-            ],
-          },
-          {
-            label: 'Raumreinigung anpassen',
-            mode: 4,
-            modeTags: [
-              { value: 0 },
-              { value: 16385 },
-              { value: 16386 },
-            ],
-          },
-        ],
+        supportedModes: MOVA_CLEANING_MODES,
         currentMode: selectedCleaningMode,
       },
       rvcOperationalState: {
@@ -798,14 +703,6 @@ export async function registerMovaMatterVacuum(
               },
             );
 
-            if (
-              selectedCleaningMode === 3
-              || selectedCleaningMode === 4
-            ) {
-              extraModeRunActive = true;
-              extraModeRunObservedActive = false;
-            }
-
             await updateMatterState(1, 1);
             return;
           }
@@ -816,9 +713,6 @@ export async function registerMovaMatterVacuum(
               () => cloud.returnToDock(device.did),
             );
             await updateMatterState(0, 64);
-            await clearExtraModeSelection(
-              'Rückkehr zur Station',
-            );
             return;
           }
 
@@ -848,9 +742,6 @@ export async function registerMovaMatterVacuum(
             () => cloud.returnToDock(device.did),
           );
           await updateMatterState(0, 64);
-          await clearExtraModeSelection(
-            'Rückkehr zur Station',
-          );
         },
       },
       rvcCleanMode: {
@@ -870,10 +761,6 @@ export async function registerMovaMatterVacuum(
           );
 
           selectedCleaningMode = newMode;
-          extraModeWasSelected =
-            newMode === 3 || newMode === 4;
-          extraModeRunActive = false;
-          extraModeRunObservedActive = false;
           modeWriteProtectedUntil =
             Date.now() + MODE_WRITE_PROTECTION_MS;
 
