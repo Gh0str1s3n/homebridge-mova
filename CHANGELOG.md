@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1 - 2026-08-25
+
+- Limit Apple Home to the three unambiguous main modes: Vacuum, Mop, and
+  Vacuum and Mop
+- Keep single-room and multi-room selection through Matter Service Area
+- Remove Deep Clean and Automatic per-room cleaning from Apple Home
+- Normalize previously active optional MOVA modes to Vacuum and Mop so Matter
+  never reports an unsupported mode
+
 ## 1.0.1-beta.4 - 2026-08-25
 
 - Present Vacuum, Mop, Vacuum and Mop, Deep Clean and Automatic per-room

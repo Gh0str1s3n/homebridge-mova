@@ -65,7 +65,7 @@ test('sendet den individuellen Raumplan unverändert an MOVA', async () => {
   ]);
 });
 
-test('überlässt im Automatikmodus die Raumwerte dem MOVA-Roboter', async () => {
+test('sendet eine geordnete Standard-Raumauswahl an MOVA', async () => {
   const cloud = new MovaCloud('test@example.com', 'secret');
   let action;
 
@@ -94,16 +94,25 @@ test('überlässt im Automatikmodus die Raumwerte dem MOVA-Roboter', async () =>
   ]);
 });
 
-test('bestätigt den von MOVA gemeldeten Automatikmodus', async () => {
+test('bestätigt den von MOVA gemeldeten einheitlichen Modus', async () => {
   const cloud = new MovaCloud('test@example.com', 'secret');
   let statusRequests = 0;
 
   cloud.getVacuumStatus = async () => {
     statusRequests += 1;
-    return { customizedCleaning: 1 };
+    return { customizedCleaning: 0 };
   };
 
-  await cloud.waitForCustomizedCleaning('vacuum-1', true);
+  await cloud.waitForCustomizedCleaning('vacuum-1', false);
 
   assert.equal(statusRequests, 1);
+});
+
+test('lehnt nicht veröffentlichte Reinigungsmodi ab', async () => {
+  const cloud = new MovaCloud('test@example.com', 'secret');
+
+  await assert.rejects(
+    cloud.setCleaningMode('vacuum-1', 3),
+    /Nicht unterstützter Reinigungsmodus: 3/u,
+  );
 });

@@ -920,7 +920,7 @@ export class MovaCloud {
     did: string | number,
     mode: number,
   ): Promise<void> {
-    if (![0, 1, 2, 3].includes(mode)) {
+    if (![0, 1, 2].includes(mode)) {
       throw new Error(
         `Nicht unterstützter Reinigungsmodus: ${mode}`,
       );
@@ -988,9 +988,7 @@ export class MovaCloud {
         ? 2
         : mode === 1
           ? 1
-          : mode === 2
-            ? 0
-            : 3;
+          : 0;
 
     const encodedValue =
       ((rawValue & ~3) | (wireMode & 3)) >>> 0;

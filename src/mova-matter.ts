@@ -39,20 +39,6 @@ export const MOVA_CLEANING_MODES = [
       { value: 16386 },
     ],
   },
-  {
-    label: 'Tiefenreinigung',
-    mode: 3,
-    modeTags: [
-      { value: 16384 },
-    ],
-  },
-  {
-    label: 'Automatische Raumreinigung',
-    mode: 4,
-    modeTags: [
-      { value: 0 },
-    ],
-  },
 ];
 
 function getOperationalState(device: MovaDevice): number {
@@ -216,14 +202,9 @@ function getLiveOperationalState(
   return 0;
 }
 
-function decodeCleaningMode(
+export function decodeMovaCleaningMode(
   rawValue: number | undefined,
-  customizedCleaning: number | undefined,
 ): number | undefined {
-  if (customizedCleaning === 1) {
-    return 4;
-  }
-
   if (rawValue === undefined) {
     return undefined;
   }
@@ -238,15 +219,10 @@ function decodeCleaningMode(
     return 1;
   }
 
-  if (wireMode === 0) {
-    return 2;
-  }
-
-  if (wireMode === 3) {
-    return 3;
-  }
-
-  return undefined;
+  // MOVA uses wire mode 3 for sequential/deep cleaning. Apple Home only
+  // receives the three main cleaning modes, so combined and sequential
+  // cleaning are both represented by the supported combined mode.
+  return 2;
 }
 
 function getCleaningModeLabel(
@@ -262,14 +238,6 @@ function getCleaningModeLabel(
 
   if (mode === 2) {
     return 'Saugen und Wischen';
-  }
-
-  if (mode === 3) {
-    return 'Tiefenreinigung';
-  }
-
-  if (mode === 4) {
-    return 'Automatische Raumreinigung';
   }
 
   return 'Unbekannt';
@@ -362,22 +330,6 @@ export async function registerMovaMatterVacuum(
     mode: number,
     confirmState = false,
   ): Promise<void> => {
-    if (mode === 4) {
-      await cloud.setCustomizedCleaning(
-        device.did,
-        true,
-      );
-
-      if (confirmState) {
-        await cloud.waitForCustomizedCleaning(
-          device.did,
-          true,
-        );
-      }
-
-      return;
-    }
-
     await cloud.setCustomizedCleaning(
       device.did,
       false,
@@ -448,9 +400,8 @@ export async function registerMovaMatterVacuum(
       }
 
       const reportedCleaningMode =
-        decodeCleaningMode(
+        decodeMovaCleaningMode(
           liveStatus.cleaningModeRaw,
-          liveStatus.customizedCleaning,
         );
       if (reportedCleaningMode !== undefined) {
         const modeMatchesSelection =
@@ -682,16 +633,6 @@ export async function registerMovaMatterVacuum(
                   true,
                 );
 
-                if (
-                  selectedCleaningMode === 4
-                  && selectedRoomIds.length > 0
-                ) {
-                  log.info(
-                    'Automatische MOVA-Raumeinstellungen werden für '
-                    + `${selectedRoomNames.join(', ')} verwendet.`,
-                  );
-                }
-
                 if (selectedRoomIds.length > 0) {
                   await cloud.startRoomCleaning(
                     device.did,
@@ -746,7 +687,7 @@ export async function registerMovaMatterVacuum(
       },
       rvcCleanMode: {
         changeToMode: async ({ newMode }) => {
-          if (![0, 1, 2, 3, 4].includes(newMode)) {
+          if (![0, 1, 2].includes(newMode)) {
             throw new matter.status.ConstraintError(
               `Nicht unterstützter Reinigungsmodus: ${newMode}`,
             );
