@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0-beta.0 - 2026-08-25
+
+- Detect previously unknown MOVA vacuum model identifiers
+- Add a safe read-only diagnostic mode that sends no control commands and
+  publishes no Matter accessory
+- Generate a sanitized compatibility report without credentials, device IDs,
+  custom device names or room names
+- Add an explicit experimental full-access mode for community hardware tests
+- Add a GitHub issue form for requesting and documenting support for a new
+  MOVA model
+
 ## 1.0.1 - 2026-08-25
 
 - Limit Apple Home to the three unambiguous main modes: Vacuum, Mop, and

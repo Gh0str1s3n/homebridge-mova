@@ -12,8 +12,11 @@ a native Matter robotic vacuum cleaner.
 ## Supported devices
 
 The plugin has been developed and tested with the **MOVA E40 Ultra** using the
-device models `mova.vacuum.r9504a` and `mova.vacuum.r5732a`. Other MOVA models
-are not currently supported.
+device models `mova.vacuum.r9504a` and `mova.vacuum.r5732a`.
+
+Other `mova.vacuum.*` models are detected but remain disabled by default until
+their commands have been confirmed with real hardware. See
+[Testing another MOVA model](#testing-another-mova-model) to help add one.
 
 ## Features
 
@@ -45,6 +48,8 @@ Use the Homebridge plugin settings and enter:
 - **Name:** the name of the integration in Homebridge
 - **MOVA email address:** the address used by the MOVAhome app
 - **MOVA password:** the password for the MOVAhome account
+- **Unknown MOVA model support:** leave disabled for tested devices; use the
+  read-only diagnostic mode when helping to add a new model
 
 Equivalent configuration:
 
@@ -84,6 +89,24 @@ in the protected password field.
 
 Never include your MOVA password, Matter pairing code or complete Homebridge
 configuration in an issue or support request.
+
+## Testing another MOVA model
+
+If the account contains an unknown `mova.vacuum.*` model, the plugin logs its
+model identifier and a link to the new-model request form. Unknown models are
+never enabled automatically.
+
+Start with **Safe diagnostic mode**. It reads the model's existing status and
+room count but sends no control commands and publishes no Matter accessory.
+The resulting sanitized report contains no MOVA credentials, account details,
+device identifier, custom device name or room names.
+
+Attach that report to a
+[new MOVA model request](https://github.com/Gh0str1s3n/homebridge-mova/issues/new?template=new-mova-model.yml).
+Only use **Experimental full access** when you understand that the model's
+commands have not been verified by the plugin author. Test start, pause,
+resume, return to dock and each cleaning mode one at a time before requesting
+that the model be added to the tested list.
 
 ## Room selection
 

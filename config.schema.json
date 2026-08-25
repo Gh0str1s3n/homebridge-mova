@@ -2,7 +2,7 @@
   "pluginAlias": "MovaVacuum",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "MOVA E40 Ultra mit Homebridge und Apple Home verbinden.",
+  "headerDisplay": "MOVA-Saugroboter mit Homebridge und Apple Home verbinden.",
   "footerDisplay": "Die Zugangsdaten werden ausschließlich für die Anmeldung an der MOVA-Cloud verwendet. Gib dein Passwort niemals in Protokollen oder Supportanfragen weiter.",
   "schema": {
     "type": "object",
@@ -27,6 +27,22 @@
         "x-schema-form": {
           "type": "password"
         }
+      },
+      "experimentalModelSupport": {
+        "title": "Unterstützung unbekannter MOVA-Modelle",
+        "type": "string",
+        "default": "off",
+        "enum": [
+          "off",
+          "diagnostic",
+          "enabled"
+        ],
+        "enumNames": [
+          "Deaktiviert (empfohlen)",
+          "Sicherer Diagnosemodus",
+          "Experimentelle Vollfreigabe (auf eigenes Risiko)"
+        ],
+        "description": "Nur für noch nicht bestätigte MOVA-Saugroboter. Der Diagnosemodus liest Status und Raumanzahl, sendet aber keine Steuerbefehle und veröffentlicht kein Matter-Gerät. Die Vollfreigabe stellt das Gerät experimentell bereit; Steuerbefehle können je nach Modell abweichen."
       }
     },
     "required": [

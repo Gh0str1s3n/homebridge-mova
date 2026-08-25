@@ -270,7 +270,7 @@ export async function registerMovaMatterVacuum(
   const displayName =
     device.customName?.trim()
     || device.deviceInfo?.displayName?.trim()
-    || 'MOVA E40 Ultra';
+    || 'MOVA Saugroboter';
 
   const operationalState = getOperationalState(device);
   const battery = getBatteryLevel(device);
