@@ -18,6 +18,44 @@ Other `mova.vacuum.*` models are detected but remain disabled by default until
 their commands have been confirmed with real hardware. See
 [Testing another MOVA model](#testing-another-mova-model) to help add one.
 
+### Known unverified candidates
+
+The following product names and model identifiers are known from community
+device catalogues, but **have not been tested with this Homebridge plugin**.
+Being listed here does not enable a model or claim compatibility.
+
+| Product | Known model identifiers |
+| --- | --- |
+| MOVA P50 Pro Ultra | `r2475a`, `r2475h`, `r2475t`, `r9416d`, `r2587a` |
+| MOVA P50 Ultra | `r2519a` |
+| MOVA P50s Ultra | `r9427h` |
+| MOVA P50 Standard | `r9416`, `r94745`, `r94165` |
+| MOVA P50 Pro | `r9474` |
+| MOVA P10 Ultra | `r2462a` |
+| MOVA P10 Pro Ultra | `r2491a` |
+| MOVA P10 Pro Ultra Gen 2 | `r5730c` |
+| MOVA P20 Ultra | `r2432b` |
+| MOVA P60 | `r9427`, `r9427x`, `r5747`, `r5730` |
+| MOVA P60 Pro | `r9482`, `r2535` |
+| MOVA P70 Pro Ultra | `r590q`, `r5770`, `r5977a`, `r5977f`, `r5977g`, `r5977h` |
+| MOVA V50 Ultra | `r2525a`, `r2525e`, `r2525h` |
+| MOVA V50 Ultra Complete | `r2582a`, `r2582c`, `r2582h`, `r2582k` |
+| MOVA V60 MOBIUS | `r2599` |
+| MOVA Z50 Ultra | `r2430a`, `r2430u` |
+| MOVA Z60 Pro | `r9473`, `r2561` |
+| MOVA Z60 Ultra Roller Complete | `r9540a`, `r9540h`, `r9540k`, `r9540n`, `r9540u` |
+| MOVA Z70 Pro | `r5766` |
+| MOVA Z70 Ultra Roller Complete | `r5765h` |
+| MOVA S70 Roller | `r5769a`, `r5769f`, `r5769g`, `r5769h`, `r5769q`, `r5769t` |
+| MOVA S70 Ultra Roller | `r5770a`, `r5770g`, `r5770h`, `r5770t`, `r590qf` |
+| MOVA E20s Pro | `r2569c` |
+| MOVA E30 Pro | `r2533h` |
+| MOVA E30 Pro Ultra | `r95046` |
+
+Models without a public identifier are intentionally omitted. Candidate data
+is adapted from the MIT-licensed
+[F1nn-T/dreame-ha community catalogue](https://github.com/F1nn-T/dreame-ha).
+
 ## Features
 
 - Native Matter robotic vacuum cleaner in Apple Home
@@ -92,9 +130,10 @@ configuration in an issue or support request.
 
 ## Testing another MOVA model
 
-If the account contains an unknown `mova.vacuum.*` model, the plugin logs its
-model identifier and a link to the new-model request form. Unknown models are
-never enabled automatically.
+If the account contains an unverified `mova.vacuum.*` model, the plugin logs
+its model identifier and a link to the new-model request form. For a known
+candidate, it also logs the matching product name. Unverified models are never
+enabled automatically.
 
 Start with **Safe diagnostic mode**. It reads the model's existing status and
 room count but sends no control commands and publishes no Matter accessory.
@@ -134,6 +173,13 @@ MOVA model identifier and relevant sanitized log lines.
 The configured credentials are used by the plugin to sign in to the MOVA
 cloud. The plugin author does not operate an intermediary service and does not
 collect analytics or account data.
+
+## Credits
+
+The unverified model candidate catalogue is based on community research from
+[F1nn-T/dreame-ha](https://github.com/F1nn-T/dreame-ha). No compatibility is
+inferred from that list; every model still requires safe testing with this
+plugin before it can join the supported-device list.
 
 ## License
 

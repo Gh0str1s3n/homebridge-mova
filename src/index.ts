@@ -11,6 +11,7 @@ import { MovaCloud } from './mova-cloud.js';
 import {
   createMovaDiagnosticReport,
   getExperimentalModelMode,
+  getKnownUntestedMovaModel,
   isMovaVacuumModel,
   isTestedMovaModel,
   MODEL_SUPPORT_REQUEST_URL,
@@ -129,7 +130,11 @@ class MovaVacuumPlatform implements DynamicPlatformPlugin {
         return;
       }
 
-      const experimentalVacuum = devices.find(
+      const knownCandidateVacuum = devices.find(
+        device => getKnownUntestedMovaModel(device.model) !== undefined,
+      );
+
+      const experimentalVacuum = knownCandidateVacuum ?? devices.find(
         device => isMovaVacuumModel(device.model),
       );
 
@@ -140,9 +145,21 @@ class MovaVacuumPlatform implements DynamicPlatformPlugin {
         return;
       }
 
-      this.log.warn(
-        `Nicht getestetes MOVA-Modell erkannt: ${experimentalVacuum.model}.`,
+      const knownCandidate = getKnownUntestedMovaModel(
+        experimentalVacuum.model,
       );
+
+      if (knownCandidate) {
+        this.log.warn(
+          'Bekanntes, aber mit diesem Plugin noch nicht getestetes '
+          + `MOVA-Modell erkannt: ${knownCandidate.name} `
+          + `(${experimentalVacuum.model}).`,
+        );
+      } else {
+        this.log.warn(
+          `Nicht getestetes MOVA-Modell erkannt: ${experimentalVacuum.model}.`,
+        );
+      }
       this.log.warn(
         `Unterstützung für dieses Modell anfragen: ${MODEL_SUPPORT_REQUEST_URL}`,
       );

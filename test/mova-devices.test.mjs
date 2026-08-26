@@ -4,8 +4,11 @@ import test from 'node:test';
 import {
   createMovaDiagnosticReport,
   getExperimentalModelMode,
+  getKnownUntestedMovaModel,
   isMovaVacuumModel,
   isTestedMovaModel,
+  KNOWN_UNTESTED_MOVA_MODELS,
+  TESTED_MOVA_MODELS,
 } from '../dist/mova-devices.js';
 
 test('unterscheidet getestete, unbekannte und fremde Gerätemodelle', () => {
@@ -16,6 +19,34 @@ test('unterscheidet getestete, unbekannte und fremde Gerätemodelle', () => {
   assert.equal(isMovaVacuumModel('mova.washer.unknown'), false);
   assert.equal(isMovaVacuumModel(undefined), false);
   assert.equal(isTestedMovaModel(undefined), false);
+});
+
+test('ordnet bekannte Community-Kandidaten zu, ohne sie freizuschalten', () => {
+  assert.equal(
+    getKnownUntestedMovaModel('mova.vacuum.r5730c')?.name,
+    'MOVA P10 Pro Ultra Gen 2',
+  );
+  assert.equal(
+    getKnownUntestedMovaModel('mova.vacuum.r9540u')?.name,
+    'MOVA Z60 Ultra Roller Complete',
+  );
+  assert.equal(
+    getKnownUntestedMovaModel('mova.vacuum.unknown'),
+    undefined,
+  );
+  assert.equal(isTestedMovaModel('mova.vacuum.r5730c'), false);
+});
+
+test('Kandidatenkennungen sind eindeutig und überschneiden sich nicht mit getesteten Modellen', () => {
+  const candidates = KNOWN_UNTESTED_MOVA_MODELS.flatMap(
+    candidate => candidate.models,
+  );
+
+  assert.equal(new Set(candidates).size, candidates.length);
+  assert.ok(candidates.every(model => model.startsWith('mova.vacuum.')));
+  assert.ok(
+    candidates.every(model => !TESTED_MOVA_MODELS.includes(model)),
+  );
 });
 
 test('aktiviert experimentelle Modelle nur mit einem gültigen Modus', () => {

@@ -29,7 +29,7 @@
         }
       },
       "experimentalModelSupport": {
-        "title": "Unterstützung unbekannter MOVA-Modelle",
+        "title": "Unterstützung unbestätigter MOVA-Modelle",
         "type": "string",
         "default": "off",
         "enum": [

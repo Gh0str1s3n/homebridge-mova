@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0-beta.1 - 2026-08-26
+
+- Add a sourced catalogue of known but unverified MOVA vacuum model variants
+- Show the likely product name in the Homebridge log when a catalogue match is
+  detected
+- Keep every catalogue candidate disabled by default and behind the existing
+  safe diagnostic and explicit experimental-access controls
+- Add automated checks for duplicate identifiers and accidental overlap with
+  the tested MOVA E40 Ultra models
+
 ## 1.2.0-beta.0 - 2026-08-25
 
 - Detect previously unknown MOVA vacuum model identifiers
