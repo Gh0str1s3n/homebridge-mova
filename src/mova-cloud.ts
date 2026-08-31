@@ -1,5 +1,11 @@
 import axios from 'axios';
 import { createCipheriv, createHash } from 'node:crypto';
+import { MovaCloudError, type MovaCloudOperation } from './mova-errors.js';
+import {
+  resolveMovaRegion,
+  type MovaRegionOptions,
+  type MovaRegionSettings,
+} from './mova-region.js';
 
 import {
   decodeMovaRooms,
@@ -14,7 +20,6 @@ import {
 export type { MovaRoom } from './mova-map.js';
 
 const MOVA_CLOUD = {
-  domain: 'eu.iot.mova-tech.com:13267',
   tenantId: '000002',
   authorization: 'Basic bW92YV9hcHA6VjdLb0NoTFc4dkhBQ3FHYg==',
   meta: 'cv=i_829',
@@ -189,11 +194,14 @@ export class MovaCloud {
   private sessionRefreshAt = 0;
   private loginInFlight?: Promise<void>;
   private readonly rlcHeader: string;
+  readonly regionSettings: MovaRegionSettings;
 
   constructor(
     private readonly username: string,
     private readonly password: string,
+    options: MovaRegionOptions = {},
   ) {
+    this.regionSettings = resolveMovaRegion(options);
     this.rlcHeader = this.computeRlc();
   }
 
@@ -204,7 +212,8 @@ export class MovaCloud {
       null,
     );
 
-    let encrypted = cipher.update('eu|en|DE', 'utf8', 'hex');
+    const { region, rlcLanguage, country } = this.regionSettings;
+    let encrypted = cipher.update(`${region}|${rlcLanguage}|${country}`, 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
     return encrypted;
@@ -216,7 +225,7 @@ export class MovaCloud {
       'dreame-meta': MOVA_CLOUD.meta,
       'dreame-rlc': this.rlcHeader,
       'tenant-id': MOVA_CLOUD.tenantId,
-      host: MOVA_CLOUD.domain,
+      host: this.regionSettings.domain,
       authorization: MOVA_CLOUD.authorization,
       'content-type': 'application/json',
       ...(this.session.access_token
@@ -226,9 +235,42 @@ export class MovaCloud {
   }
 
   private getCommandEndpoint(): string {
-    return `https://${MOVA_CLOUD.domain}/dreame-iot-com-${
+    return `https://${this.regionSettings.domain}/dreame-iot-com-${
       MOVA_CLOUD.iotComPrefix
     }/device/sendCommand`;
+  }
+
+  private operationForUrl(url: string): MovaCloudOperation {
+    if (url.endsWith('/device/listV2')) {
+      return 'device-list';
+    }
+    if (url.endsWith('/iotfile/getDownloadUrl')) {
+      return 'map-url';
+    }
+    return 'device-command';
+  }
+
+  private responseError(
+    description: string,
+    body: unknown,
+    operation: MovaCloudOperation = 'device-command',
+    resultCode?: unknown,
+  ): MovaCloudError {
+    return new MovaCloudError(description, operation, this.regionSettings, {
+      body,
+      resultCode,
+    });
+  }
+
+  private async downloadMap<T>(url: string): Promise<T> {
+    try {
+      const response = await axios.get<T>(url, { timeout: REQUEST_TIMEOUT_MS });
+      return response.data;
+    } catch (error: unknown) {
+      throw new MovaCloudError(
+        'MOVA map download failed.', 'map-download', this.regionSettings, { error },
+      );
+    }
   }
 
   private isAuthenticationError(error: unknown): boolean {
@@ -252,30 +294,40 @@ export class MovaCloud {
       type: 'account',
       username: this.username,
       password: passwordHash,
-      country: 'DE',
-      lang: 'de',
+      country: this.regionSettings.country,
+      lang: this.regionSettings.language,
     });
 
-    const response = await axios.post<MovaSession>(
-      `https://${MOVA_CLOUD.domain}/dreame-auth/oauth/token`,
-      formData,
-      {
-        headers: {
-          ...this.getHeaders(),
-          'content-type': 'application/x-www-form-urlencoded',
-          'dreame-auth': 'bearer',
+    let session: MovaSession;
+    try {
+      const response = await axios.post<MovaSession>(
+        `https://${this.regionSettings.domain}/dreame-auth/oauth/token`,
+        formData,
+        {
+          headers: {
+            ...this.getHeaders(),
+            'content-type': 'application/x-www-form-urlencoded',
+            'dreame-auth': 'bearer',
+          },
+          timeout: REQUEST_TIMEOUT_MS,
+          // Do not forward credentials to an unexpected redirect target.
+          maxRedirects: 0,
         },
-        timeout: REQUEST_TIMEOUT_MS,
-      },
-    );
-
-    if (!response.data.access_token) {
-      throw new Error(
-        'Die MOVA-Cloud hat kein Zugriffstoken geliefert.',
+      );
+      session = response.data;
+    } catch (error: unknown) {
+      throw new MovaCloudError(
+        'MOVA login failed.', 'login', this.regionSettings, { error },
       );
     }
 
-    const expiresInSeconds = Number(response.data.expires_in);
+    if (typeof session?.access_token !== 'string' || !session.access_token.trim()) {
+      throw this.responseError(
+        'MOVA login returned no access token.', session, 'login',
+      );
+    }
+
+    const expiresInSeconds = Number(session.expires_in);
     const sessionLifetime =
       Number.isFinite(expiresInSeconds)
       && expiresInSeconds > 0
@@ -287,7 +339,7 @@ export class MovaCloud {
       Math.floor(sessionLifetime / 10),
     );
 
-    this.session = response.data;
+    this.session = session;
     this.sessionRefreshAt =
       Date.now() + sessionLifetime - refreshMargin;
   }
@@ -335,6 +387,7 @@ export class MovaCloud {
         {
           headers: this.getHeaders(),
           timeout: REQUEST_TIMEOUT_MS,
+          maxRedirects: 0,
         },
       );
 
@@ -356,32 +409,32 @@ export class MovaCloud {
         );
       }
 
-      throw error;
+      throw new MovaCloudError(
+        'MOVA cloud request failed.', this.operationForUrl(url), this.regionSettings, { error },
+      );
     }
   }
 
   async getDevices(): Promise<MovaDevice[]> {
     const response =
       await this.postAuthenticated<MovaDeviceListResponse>(
-        `https://${MOVA_CLOUD.domain}/dreame-user-iot/iotuserbind/device/listV2`,
+        `https://${this.regionSettings.domain}/dreame-user-iot/iotuserbind/device/listV2`,
         {
           sharedStatus: 1,
           current: 1,
           size: 100,
-          lang: 'de',
+          lang: this.regionSettings.language,
           timestamp: Date.now(),
         },
       );
 
     const records =
-      response.data?.page?.records
-      ?? response.data?.data?.page?.records;
+      response?.data?.page?.records
+      ?? response?.data?.data?.page?.records;
 
     if (!Array.isArray(records)) {
-      throw new Error(
-        `Die MOVA-Cloud hat keine Geräteliste geliefert. Code: ${
-          response.code ?? 'unbekannt'
-        }`,
+      throw this.responseError(
+        'Die MOVA-Cloud hat keine Geräteliste geliefert.', response, 'device-list',
       );
     }
 
@@ -427,11 +480,9 @@ export class MovaCloud {
         },
       );
 
-    if (response.code !== 0) {
-      throw new Error(
-        `MOVA-Statusabruf fehlgeschlagen. Code: ${
-          response.code ?? 'unbekannt'
-        }${response.msg ? ` – ${response.msg}` : ''}`,
+    if (response?.code !== 0) {
+      throw this.responseError(
+        'MOVA-Statusabruf fehlgeschlagen.', response,
       );
     }
 
@@ -515,21 +566,18 @@ export class MovaCloud {
         },
       );
 
-    const mapProperty = response.data?.result?.[0];
+    const mapProperty = response?.data?.result?.[0];
 
     if (
-      response.code !== 0
+      response?.code !== 0
       || (
         mapProperty?.code !== undefined
         && mapProperty.code !== 0
       )
     ) {
-      throw new Error(
-        `MOVA-Kartenliste konnte nicht gelesen werden. Code: ${
-          mapProperty?.code
-          ?? response.code
-          ?? 'unbekannt'
-        }`,
+      throw this.responseError(
+        'MOVA-Kartenliste konnte nicht gelesen werden.', response,
+        'device-command', mapProperty?.code,
       );
     }
 
@@ -554,36 +602,31 @@ export class MovaCloud {
 
     const downloadUrl =
       await this.postAuthenticated<MovaDownloadUrlResponse>(
-        `https://${MOVA_CLOUD.domain}/dreame-user-iot/iotfile/getDownloadUrl`,
+        `https://${this.regionSettings.domain}/dreame-user-iot/iotfile/getDownloadUrl`,
         {
           did: device.did,
           model: device.model,
           filename: mapDescriptor.object_name,
-          region: 'eu',
+          region: this.regionSettings.region,
         },
       );
 
-    if (downloadUrl.code !== 0 || !downloadUrl.data) {
-      throw new Error(
-        `MOVA-Karten-Download konnte nicht vorbereitet werden. Code: ${
-          downloadUrl.code ?? 'unbekannt'
-        }${downloadUrl.msg ? ` – ${downloadUrl.msg}` : ''}`,
+    if (downloadUrl?.code !== 0 || typeof downloadUrl.data !== 'string' || !downloadUrl.data) {
+      throw this.responseError(
+        'MOVA-Karten-Download konnte nicht vorbereitet werden.', downloadUrl, 'map-url',
       );
     }
 
-    const downloaded = await axios.get<MovaStoredMapFile | string>(
+    const downloaded = await this.downloadMap<MovaStoredMapFile | string>(
       downloadUrl.data,
-      {
-        timeout: REQUEST_TIMEOUT_MS,
-      },
     );
 
     let mapFile: MovaStoredMapFile;
 
     try {
-      mapFile = typeof downloaded.data === 'string'
-        ? JSON.parse(downloaded.data) as MovaStoredMapFile
-        : downloaded.data;
+      mapFile = typeof downloaded === 'string'
+        ? JSON.parse(downloaded) as MovaStoredMapFile
+        : downloaded;
     } catch {
       throw new Error(
         'Die gespeicherte MOVA-Karte enthält ungültige Daten.',
@@ -651,23 +694,20 @@ export class MovaCloud {
         },
       );
 
-    const currentMapProperty = response.data?.result?.find(
+    const currentMapProperty = response?.data?.result?.find(
       result => result.siid === 6 && result.piid === 3,
-    ) ?? response.data?.result?.[0];
+    ) ?? response?.data?.result?.[0];
 
     if (
-      response.code !== 0
+      response?.code !== 0
       || (
         currentMapProperty?.code !== undefined
         && currentMapProperty.code !== 0
       )
     ) {
-      throw new Error(
-        `Aktive MOVA-Karte konnte nicht gelesen werden. Code: ${
-          currentMapProperty?.code
-          ?? response.code
-          ?? 'unbekannt'
-        }`,
+      throw this.responseError(
+        'Aktive MOVA-Karte konnte nicht gelesen werden.', response,
+        'device-command', currentMapProperty?.code,
       );
     }
 
@@ -686,30 +726,25 @@ export class MovaCloud {
 
     const downloadUrl =
       await this.postAuthenticated<MovaDownloadUrlResponse>(
-        `https://${MOVA_CLOUD.domain}/dreame-user-iot/iotfile/getDownloadUrl`,
+        `https://${this.regionSettings.domain}/dreame-user-iot/iotfile/getDownloadUrl`,
         {
           did: device.did,
           model: device.model,
           filename: mapObjectName,
-          region: 'eu',
+          region: this.regionSettings.region,
         },
       );
 
-    if (downloadUrl.code !== 0 || !downloadUrl.data) {
-      throw new Error(
-        `Download der aktiven MOVA-Karte konnte nicht vorbereitet werden. Code: ${
-          downloadUrl.code ?? 'unbekannt'
-        }${downloadUrl.msg ? ` – ${downloadUrl.msg}` : ''}`,
+    if (downloadUrl?.code !== 0 || typeof downloadUrl.data !== 'string' || !downloadUrl.data) {
+      throw this.responseError(
+        'Download der aktiven MOVA-Karte konnte nicht vorbereitet werden.', downloadUrl, 'map-url',
       );
     }
 
-    const downloaded = await axios.get<unknown>(
+    const downloaded = await this.downloadMap<unknown>(
       downloadUrl.data,
-      {
-        timeout: REQUEST_TIMEOUT_MS,
-      },
     );
-    const encodedMap = decodeMovaMapPayload(downloaded.data);
+    const encodedMap = decodeMovaMapPayload(downloaded);
 
     if (!encodedMap) {
       throw new Error(
@@ -721,13 +756,9 @@ export class MovaCloud {
 
     try {
       currentRooms = decodeMovaRooms(encodedMap);
-    } catch (error: unknown) {
-      const message = error instanceof Error
-        ? error.message
-        : String(error);
-
+    } catch {
       throw new Error(
-        `Die aktive MOVA-Karte konnte nicht ausgewertet werden: ${message}`,
+        'Die aktive MOVA-Karte konnte nicht ausgewertet werden.',
       );
     }
 
@@ -772,18 +803,14 @@ export class MovaCloud {
         },
       );
 
-    const resultCode = response.data?.result?.[0]?.code;
+    const resultCode = response?.data?.result?.[0]?.code;
 
     if (
-      response.code !== 0
+      response?.code !== 0
       || (resultCode !== undefined && resultCode !== 0)
     ) {
-      throw new Error(
-        `MOVA-Befehl fehlgeschlagen. Code: ${
-          resultCode
-          ?? response.code
-          ?? 'unbekannt'
-        }${response.msg ? ` – ${response.msg}` : ''}`,
+      throw this.responseError(
+        'MOVA-Befehl fehlgeschlagen.', response, 'device-command', resultCode,
       );
     }
   }
@@ -820,18 +847,14 @@ export class MovaCloud {
         },
       );
 
-    const resultCode = response.data?.result?.[0]?.code;
+    const resultCode = response?.data?.result?.[0]?.code;
 
     if (
-      response.code !== 0
+      response?.code !== 0
       || (resultCode !== undefined && resultCode !== 0)
     ) {
-      throw new Error(
-        `${errorDescription}. Code: ${
-          resultCode
-          ?? response.code
-          ?? 'unbekannt'
-        }${response.msg ? ` – ${response.msg}` : ''}`,
+      throw this.responseError(
+        `${errorDescription}.`, response, 'device-command', resultCode,
       );
     }
   }
@@ -954,24 +977,21 @@ export class MovaCloud {
       );
 
     const currentProperty =
-      getResponse.data?.result?.find(
+      getResponse?.data?.result?.find(
         result => result.siid === 4 && result.piid === 23,
       )
-      ?? getResponse.data?.result?.[0];
+      ?? getResponse?.data?.result?.[0];
 
     if (
-      getResponse.code !== 0
+      getResponse?.code !== 0
       || (
         currentProperty?.code !== undefined
         && currentProperty.code !== 0
       )
     ) {
-      throw new Error(
-        `Aktueller Reinigungsmodus konnte nicht gelesen werden. Code: ${
-          currentProperty?.code
-          ?? getResponse.code
-          ?? 'unbekannt'
-        }`,
+      throw this.responseError(
+        'Aktueller Reinigungsmodus konnte nicht gelesen werden.', getResponse,
+        'device-command', currentProperty?.code,
       );
     }
 

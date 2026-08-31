@@ -8,6 +8,8 @@ import type {
 
 import type { MovaDevice } from './mova-cloud.js';
 import { MovaCloud } from './mova-cloud.js';
+import { MovaCloudError } from './mova-errors.js';
+import { MovaConfigurationError } from './mova-region.js';
 import {
   createMovaDiagnosticReport,
   getExperimentalModelMode,
@@ -76,9 +78,17 @@ class MovaVacuumPlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    this.cloud = new MovaCloud(username, password);
-
     try {
+      this.cloud = new MovaCloud(username, password, {
+        region: this.config.region,
+        country: this.config.country,
+        language: this.config.language,
+      });
+      const { region, country, language, rlcLanguage } = this.cloud.regionSettings;
+      this.log.info(
+        `MOVA cloud settings: region=${region}, country=${country}, `
+        + `language=${language}, rlcLanguage=${rlcLanguage}.`,
+      );
       this.log.info('Verbindung zur MOVA-Cloud wird hergestellt …');
       await this.cloud.login();
 
@@ -176,9 +186,9 @@ class MovaVacuumPlatform implements DynamicPlatformPlugin {
       this.selectedDeviceIsExperimental = true;
     } catch (error: unknown) {
       const message =
-        error instanceof Error
+        error instanceof MovaCloudError || error instanceof MovaConfigurationError
           ? error.message
-          : String(error);
+          : 'Unexpected connection error; private error details omitted.';
 
       this.log.error(`MOVA-Cloud-Fehler: ${message}`);
     }
@@ -268,7 +278,10 @@ class MovaVacuumPlatform implements DynamicPlatformPlugin {
           this.selectedDevice!.did,
         ),
       };
-    } catch {
+    } catch (error: unknown) {
+      this.log.warn(error instanceof MovaCloudError
+        ? error.message
+        : 'MOVA diagnostic status could not be read; private error details omitted.');
       return { readable: false };
     }
   }
@@ -286,7 +299,10 @@ class MovaVacuumPlatform implements DynamicPlatformPlugin {
         readable: true,
         count: rooms.length,
       };
-    } catch {
+    } catch (error: unknown) {
+      this.log.warn(error instanceof MovaCloudError
+        ? error.message
+        : 'MOVA diagnostic rooms could not be read; private error details omitted.');
       return { readable: false };
     }
   }

@@ -2,34 +2,63 @@
   "pluginAlias": "MovaVacuum",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "MOVA-Saugroboter mit Homebridge und Apple Home verbinden.",
-  "footerDisplay": "Die Zugangsdaten werden ausschließlich für die Anmeldung an der MOVA-Cloud verwendet. Gib dein Passwort niemals in Protokollen oder Supportanfragen weiter.",
+  "headerDisplay": "Connect a MOVA robot vacuum to Homebridge and Apple Home. Regional login outside EU/Germany is experimental and requires testing.",
+  "footerDisplay": "Credentials are used only to sign in to the MOVA cloud. Never share passwords, tokens, full logs or your complete Homebridge configuration in support requests.",
   "schema": {
     "type": "object",
     "properties": {
       "name": {
-        "title": "Plugin-Name",
+        "title": "Plugin name",
         "type": "string",
         "default": "MOVA",
-        "description": "Name der MOVA-Integration in Homebridge."
+        "description": "Name of the MOVA integration in Homebridge."
       },
       "username": {
-        "title": "MOVA-E-Mail-Adresse",
+        "title": "MOVA email address",
         "type": "string",
         "format": "email",
-        "placeholder": "name@beispiel.de",
-        "description": "E-Mail-Adresse, mit der du dich in der MOVAhome-App anmeldest."
+        "placeholder": "name@example.com",
+        "description": "Email address used to sign in to the MOVAhome app."
       },
       "password": {
-        "title": "MOVA-Passwort",
+        "title": "MOVA password",
         "type": "string",
-        "description": "Passwort deines MOVAhome-Kontos.",
+        "description": "Password for your MOVAhome account.",
         "x-schema-form": {
           "type": "password"
         }
       },
+      "region": {
+        "title": "MOVA cloud region",
+        "type": "string",
+        "default": "eu",
+        "enum": ["eu", "us", "sg", "cn", "ru"],
+        "enumNames": [
+          "Europe (EU; existing default)",
+          "US cloud (experimental; Canadian accounts: also set country CA)",
+          "Singapore cloud (experimental)",
+          "China cloud (experimental; login may differ)",
+          "Russia cloud (experimental; login may differ)"
+        ],
+        "description": "Select the cloud region used by your MOVAhome account, not the location of your Homebridge server. Other regions are never tried automatically. Only EU/Germany has been tested with this plugin; selecting a region does not guarantee login or model compatibility."
+      },
+      "country": {
+        "title": "MOVA account country",
+        "type": "string",
+        "pattern": "^([A-Za-z]{2})?$",
+        "placeholder": "CA",
+        "description": "Two-letter country code selected in your MOVAhome account (e.g. CA, US, DE, FR). Required for non-EU cloud regions. If left blank in EU, DE is retained for existing installations. Do not change the country of your account in the MOVAhome app just to test this plugin."
+      },
+      "language": {
+        "title": "MOVA cloud request language",
+        "type": "string",
+        "default": "auto",
+        "enum": ["auto", "en", "de", "fr"],
+        "enumNames": ["Automatic / existing defaults", "English", "German", "French"],
+        "description": "Language metadata sent to MOVA, not the Homebridge UI language. Automatic preserves the existing German requests / English regional header for EU/DE; other region/country combinations use English. For Canadian account testing, start with English."
+      },
       "experimentalModelSupport": {
-        "title": "Unterstützung unbestätigter MOVA-Modelle",
+        "title": "Unknown MOVA model support",
         "type": "string",
         "default": "off",
         "enum": [
@@ -38,11 +67,11 @@
           "enabled"
         ],
         "enumNames": [
-          "Deaktiviert (empfohlen)",
-          "Sicherer Diagnosemodus",
-          "Experimentelle Vollfreigabe (auf eigenes Risiko)"
+          "Disabled (recommended)",
+          "Safe diagnostic mode",
+          "Experimental full access (at your own risk)"
         ],
-        "description": "Nur für noch nicht bestätigte MOVA-Saugroboter. Der Diagnosemodus liest Status und Raumanzahl, sendet aber keine Steuerbefehle und veröffentlicht kein Matter-Gerät. Die Vollfreigabe stellt das Gerät experimentell bereit; Steuerbefehle können je nach Modell abweichen."
+        "description": "For unverified MOVA models only. Diagnostic mode reads status and room count, sends no control commands and publishes no Matter accessory. Full access exposes the device experimentally; commands may differ between models."
       }
     },
     "required": [

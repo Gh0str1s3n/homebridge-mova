@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0-beta.2 - 2026-08-31
+
+- Add configurable MOVA cloud region, account country and request language
+- Apply regional settings to login, encrypted regional metadata, device
+  discovery, commands and both saved/active map URL requests
+- Preserve existing EU/Germany defaults; require an account country for other
+  regions and reject unsupported configuration before making network requests
+- Add allowlisted cloud-error diagnostics, including HTTP 401/403, login
+  responses without a token, command errors and map-download failures, without
+  exposing raw responses, credentials, account/device data or signed URLs
+- Disable redirects for credential-bearing requests; never probe other regions
+- Provide English configuration labels, Canadian account testing instructions
+  and region/login fields in the model-support form
+- Add mocked HTTP and platform tests for regional routing, privacy, bounded
+  reauthentication and read-only diagnostics; no live hardware commands
+- Canadian accounts and non-EU login flows remain unverified pending tester
+  feedback; no additional models are promoted to tested support
+
 ## 1.2.0-beta.1 - 2026-08-26
 
 - Add a sourced catalogue of known but unverified MOVA vacuum model variants

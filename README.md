@@ -86,6 +86,11 @@ Use the Homebridge plugin settings and enter:
 - **Name:** the name of the integration in Homebridge
 - **MOVA email address:** the address used by the MOVAhome app
 - **MOVA password:** the password for the MOVAhome account
+- **MOVA cloud region:** the cloud used by the account; defaults to `eu`
+- **MOVA account country:** the two-letter country code used in MOVAhome;
+  required for non-EU regions, defaults to `DE` only when omitted in EU
+- **MOVA cloud request language:** `auto`, `en`, `de` or `fr`; this controls
+  request metadata, not the Homebridge UI or Apple Home language
 - **Unknown MOVA model support:** leave disabled for tested devices; use the
   read-only diagnostic mode when helping to add a new model
 
@@ -115,6 +120,54 @@ child-bridge code.
 Homebridge may display **Matter not enabled** for the MOVA child bridge in this
 configuration. This is expected: the child bridge's own Matter node is disabled,
 while the external Matter vacuum remains active.
+
+### Regional login
+
+Existing configurations without regional options retain the working EU/Germany
+defaults. Select the region and country belonging to your **MOVAhome account**,
+not the location of the Homebridge host. Use the same credentials that work in
+MOVAhome; a Dreame account or a social-login-only account may use a different
+authentication flow.
+
+Available cloud identifiers are `eu`, `us`, `sg`, `cn` and `ru`. These choices
+come from community implementations; **only EU/Germany has been tested with
+this plugin**. Other regions, country combinations and authentication flows
+remain experimental. Region selection alone does not verify a robot model.
+
+For a Canadian account, the proposed starting configuration for testing is
+**US cloud (`us`), account country `CA`, language `en`**:
+
+```json
+{
+  "platform": "MovaVacuum",
+  "name": "MOVA",
+  "username": "your-mova-email@example.com",
+  "password": "your-mova-password",
+  "region": "us",
+  "country": "CA",
+  "language": "en",
+  "experimentalModelSupport": "diagnostic"
+}
+```
+
+This is a test configuration, **not confirmation that Canadian accounts or the
+V50 are compatible**. Keep an unverified model in diagnostic mode first.
+Restart the MOVA child bridge after saving. Do not move your account to another
+country in the MOVAhome app or reset/re-pair your robot to test this setting.
+
+The selected region is used consistently for login, device discovery, device
+requests and map URL requests. The country and language are also applied to
+the login form and encrypted regional header. `auto` preserves the historical
+EU/DE combination (German request language, English regional-header language);
+other account combinations use English. An explicit `en`, `de` or `fr` uses
+that language in both places. The configuration form is in English; existing
+German operational log messages and fallback room labels are not translated
+by this setting.
+
+There is no automatic search across regions and no automatic retry of a failed
+login. An authenticated API request rejected with HTTP 401/403 may trigger one
+re-login and one request retry on the **same** server, as before. Login and
+authenticated API requests do not follow redirects carrying credentials.
 
 ### Updating from 0.1.0
 
@@ -168,13 +221,63 @@ Matter commissioning.
 When reporting a problem, include the Homebridge version, Node.js version,
 MOVA model identifier and relevant sanitized log lines.
 
+### Login fails with HTTP 401/403
+
+First check that the account signs in successfully in MOVAhome, then check
+the plugin's account region and country. A 401 is not proof of a wrong password:
+an incorrect region or an unsupported region-specific authentication flow can
+also be responsible. Stop retrying if MOVA reports an attempt limit or lockout.
+
+Cloud failures include a compact `MOVA cloud diagnostic:` JSON object with
+the operation, configured region/country/language, HTTP status or known network
+error code, and a restricted subset of API error fields. For example:
+
+```json
+{
+  "operation": "login",
+  "region": "us",
+  "country": "CA",
+  "language": "en",
+  "rlcLanguage": "en",
+  "httpStatus": 401,
+  "networkCode": "ERR_BAD_REQUEST",
+  "api": {
+    "error": "invalid_user",
+    "error_description": "username or password error"
+  }
+}
+```
+
+This is an illustrative example, not a real account report. The diagnostic
+keeps only numeric/recognized error codes, recognized generic error messages,
+bounded attempt counters and a success flag. Unknown text is replaced with
+`[redacted]`; arbitrary response fields and nested objects are omitted. Raw
+Axios errors, request bodies/headers, tokens and signed map URLs are not logged.
+Errors returned with HTTP 200 but without an access token are handled too.
+
+If login still fails, share **only this diagnostic object**, your plugin
+version and selected account settings in a support request. Check it before
+posting. Do not share the full log or raw MOVA response: normal operation can
+log device/room names and Homebridge itself can log pairing codes. A cloud
+diagnostic is available even when login fails before model discovery.
+
 ## Privacy
 
 The configured credentials are used by the plugin to sign in to the MOVA
 cloud. The plugin author does not operate an intermediary service and does not
 collect analytics or account data.
 
+Cloud-error diagnostics are logged locally by Homebridge and are not sent to
+the plugin author automatically. They deliberately include your configured
+country and region, but no account credentials or device identifiers.
+
 ## Credits
+
+Regional cloud identifiers are based on the
+[F1nn-T/dreame-ha MOVA configuration flow](https://github.com/F1nn-T/dreame-ha/blob/main/custom_components/dreame_mower/config_flow.py).
+The US MOVA endpoint is also documented in this
+[independent MOVA P10 protocol analysis](https://canitrustthat.com/teardowns/reverse-engineering-mova-p10-vacuum/).
+These sources inform experimental routing, not a compatibility guarantee.
 
 The unverified model candidate catalogue is based on community research from
 [F1nn-T/dreame-ha](https://github.com/F1nn-T/dreame-ha). No compatibility is
