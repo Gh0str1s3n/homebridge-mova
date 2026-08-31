@@ -20,7 +20,7 @@ body:
     id: model_identifier
     attributes:
       label: MOVA model identifier
-      description: Copy only the mova.vacuum.* identifier from the Homebridge log.
+      description: Copy only the mova.vacuum.* identifier from the Homebridge log. If login fails before discovery, enter "Unavailable - login failed".
       placeholder: mova.vacuum.example
     validations:
       required: true
@@ -29,7 +29,30 @@ body:
     id: plugin_version
     attributes:
       label: Homebridge MOVA version
-      placeholder: 1.2.0-beta.0
+      placeholder: 1.2.0-beta.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cloud_region
+    attributes:
+      label: Configured MOVA cloud region
+      options:
+        - eu
+        - us
+        - sg
+        - cn
+        - ru
+        - Unknown / plugin older than 1.2.0-beta.2
+    validations:
+      required: true
+
+  - type: input
+    id: account_country
+    attributes:
+      label: MOVAhome account country and plugin request language
+      description: Only the country code and language, not your email or account ID. Say whether the plugin's country field was left blank.
+      placeholder: "Account CA, plugin country CA, language en"
     validations:
       required: true
 
@@ -37,7 +60,7 @@ body:
     id: diagnostic_report
     attributes:
       label: Sanitized diagnostic report
-      description: Paste the single log object beginning with "Bereinigter MOVA-Diagnosebericht". Check it once more for personal information before submitting.
+      description: Paste the JSON object after "Bereinigter MOVA-Diagnosebericht". If login fails, paste only the object after "MOVA cloud diagnostic:" instead (available from 1.2.0-beta.2). Never paste a raw API response, complete log or config. Check it once more for personal information before submitting.
       render: json
     validations:
       required: true
